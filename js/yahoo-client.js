@@ -4,27 +4,29 @@ const YahooClient = (() => {
     ETHUSD: "ETH-USD"
   };
 
-  const INTERVAL_CONFIG = {
-    "1d": { interval: "1d", range: "5y" },
-    "1h": { interval: "1h", range: "2y" },
-    "1wk": { interval: "1wk", range: "10y" }
-  };
-
   const PROXY = "https://api.allorigins.win/raw?url=";
+
+  const INTRADAY = new Set(["1m", "2m", "5m", "15m", "30m", "1h", "60m", "90m"]);
 
   function yahooSymbol(symbol) {
     return SYMBOL_MAP[symbol] || symbol;
   }
 
-  function barTime(timestamp, interval) {
-    const isIntraday = interval === "1h";
-    return isIntraday ? timestamp : new Date(timestamp * 1000).toISOString().slice(0, 10);
+  function resolveConfig(uiInterval) {
+    if (window.DataService?.getConfig) return DataService.getConfig(uiInterval);
+    return { yahoo: "1d", range: "5y", file: "1d", label: "1D" };
   }
 
-  async function fetchChart(symbol, fileInterval) {
-    const cfg = INTERVAL_CONFIG[fileInterval] || INTERVAL_CONFIG["1d"];
+  function barTime(timestamp, yahooInterval) {
+    return INTRADAY.has(yahooInterval)
+      ? timestamp
+      : new Date(timestamp * 1000).toISOString().slice(0, 10);
+  }
+
+  async function fetchChart(symbol, uiInterval) {
+    const cfg = resolveConfig(uiInterval);
     const target = yahooSymbol(symbol);
-    const endpoint = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(target)}?interval=${cfg.interval}&range=${cfg.range}`;
+    const endpoint = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(target)}?interval=${cfg.yahoo}&range=${cfg.range}`;
     const response = await fetch(`${PROXY}${encodeURIComponent(endpoint)}`);
     if (!response.ok) throw new Error(`Yahoo Finance request failed (${response.status})`);
     const payload = await response.json();
@@ -43,7 +45,7 @@ const YahooClient = (() => {
       const volume = quote.volume[index];
       if ([open, high, low, close].some((v) => v == null)) return;
       candles.push({
-        time: barTime(ts, cfg.interval),
+        time: barTime(ts, cfg.yahoo),
         open: Number(open.toFixed(4)),
         high: Number(high.toFixed(4)),
         low: Number(low.toFixed(4)),
@@ -58,7 +60,8 @@ const YahooClient = (() => {
       symbol: symbol.toUpperCase(),
       name: result.meta?.longName || result.meta?.shortName || symbol,
       exchange: result.meta?.exchangeName || result.meta?.fullExchangeName || "NASDAQ",
-      interval: fileInterval,
+      interval: cfg.file,
+      uiInterval,
       source: "Yahoo Finance",
       fetchedAt: new Date().toISOString(),
       candles

@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-06-22T00:23:35.840512+00:00",
+  "fetchedAt": "2026-06-22T01:57:20.687402+00:00",
   "source": "Yahoo Finance",
   "symbols": [
     {
@@ -54,17 +54,17 @@
       "symbol": "BTCUSD",
       "name": "Bitcoin",
       "exchange": "CRYPTO",
-      "price": 63490.6602,
-      "change": -1.17,
-      "volume": "16.1B"
+      "price": 64540.8008,
+      "change": 0.47,
+      "volume": "17.7B"
     },
     {
       "symbol": "ETHUSD",
       "name": "Ethereum",
       "exchange": "CRYPTO",
-      "price": 1713.58,
-      "change": -1.48,
-      "volume": "8.5B"
+      "price": 1742.4301,
+      "change": 0.18,
+      "volume": "9.4B"
     }
   ]
 }

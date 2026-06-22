@@ -1,6 +1,8 @@
 let MARKETS = [];
 
-const MIN_BACKTEST_BARS = 60;
+function minBacktestBars() {
+  return DataService.minBacktestBars(state.interval);
+}
 
 const state = {
   active: null,
@@ -180,7 +182,7 @@ async function loadMarketData() {
     state.rawCandles = payload.candles;
 
     if (!state.range.from && !state.range.to) {
-      state.range = DataService.defaultRange(state.rawCandles);
+      state.range = DataService.defaultRange(state.rawCandles, state.interval);
       document.getElementById("rangeFrom").value = state.range.from;
       document.getElementById("rangeTo").value = state.range.to;
     }
@@ -194,7 +196,7 @@ async function loadMarketData() {
     const fetched = new Date(payload.fetchedAt).toLocaleDateString();
     const note = payload.sourceNote ? ` · ${payload.sourceNote}` : "";
     setStatus(
-      `${payload.source} · ${DataService.intervalLabel(state.interval)} · latest ${DataService.formatAsOf(latest)} · ${state.candles.length} bars in range${note}`
+      `${payload.source} · ${DataService.intervalLabel(state.interval)} · latest ${DataService.formatAsOf(latest, state.interval)} · ${state.candles.length} bars in range${note}`
     );
     syncWatchlistQuote(state.active.symbol, latest);
   } catch (error) {
@@ -219,7 +221,9 @@ function updateQuoteUI() {
   document.getElementById("lastPrice").textContent = money(latest.close);
   document.getElementById("lastChange").textContent = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
   document.getElementById("lastChange").className = pct >= 0 ? "positive" : "negative";
-  document.getElementById("asOfDate").textContent = `As of ${DataService.formatAsOf(latest)} · prior close`;
+  document.getElementById("asOfDate").textContent = DataService.isIntraday(state.interval)
+    ? `As of ${DataService.formatAsOf(latest, state.interval)}`
+    : `As of ${DataService.formatAsOf(latest, state.interval)} · prior close`;
   document.getElementById("statOpen").textContent = money(rangeFirst.open);
   document.getElementById("statHigh").textContent = money(rangeHigh);
   document.getElementById("statLow").textContent = money(rangeLow);
@@ -306,8 +310,7 @@ function safeSetMarkers(markers) {
 }
 
 function candleToDateValue(time) {
-  if (typeof time === "number") return new Date(time * 1000).toISOString().slice(0, 10);
-  return String(time).slice(0, 10);
+  return DataService.toRangeInput(time, state.interval);
 }
 
 function formatCandleLabel(time) {
@@ -348,6 +351,20 @@ function updateBacktestStartLabel() {
   el.textContent = `Start: ${formatCandleLabel(state.backtestStart)}`;
 }
 
+function updateRangeInputs() {
+  const intraday = DataService.isIntraday(state.interval);
+  const fromEl = document.getElementById("rangeFrom");
+  const toEl = document.getElementById("rangeTo");
+  const inputType = intraday ? "datetime-local" : "date";
+  if (fromEl.type !== inputType) {
+    fromEl.type = inputType;
+    toEl.type = inputType;
+    state.range = { from: "", to: "" };
+  }
+  const hint = document.getElementById("rangeHint");
+  if (hint) hint.textContent = DataService.rangeHint(state.interval);
+}
+
 function setBacktestRange(from, to, startTime = null) {
   state.range = { from, to };
   state.backtestStart = startTime;
@@ -384,8 +401,9 @@ function executeBacktest(triggerBtn = null) {
     setStatus("No chart data loaded yet.", true);
     return false;
   }
-  if (state.candles.length < MIN_BACKTEST_BARS) {
-    setStatus(`Need at least ${MIN_BACKTEST_BARS} bars in range. Widen the date range or use Random start.`, true);
+  const minBars = minBacktestBars();
+  if (state.candles.length < minBars) {
+    setStatus(`Need at least ${minBars} bars in range. Widen the date range or use Random start.`, true);
     return false;
   }
 
@@ -409,12 +427,13 @@ function randomBacktestStart(triggerBtn = null) {
     setStatus("Load data first before picking a random start.", true);
     return;
   }
-  if (state.rawCandles.length < MIN_BACKTEST_BARS + 10) {
+  const minBars = minBacktestBars();
+  if (state.rawCandles.length < minBars + 10) {
     setStatus("Not enough history for a random backtest window.", true);
     return;
   }
 
-  const maxStart = state.rawCandles.length - MIN_BACKTEST_BARS - 1;
+  const maxStart = state.rawCandles.length - minBars - 1;
   const startIdx = Math.floor(Math.random() * (maxStart + 1));
   const startCandle = state.rawCandles[startIdx];
   const from = candleToDateValue(startCandle.time);
@@ -500,6 +519,7 @@ function bindEvents() {
     state.interval = btn.dataset.interval;
     document.querySelectorAll("#intervals button").forEach((b) => b.classList.toggle("selected", b === btn));
     state.range = { from: "", to: "" };
+    updateRangeInputs();
     loadMarketData();
   });
 
@@ -512,7 +532,7 @@ function bindEvents() {
   });
 
   document.getElementById("resetRange").addEventListener("click", () => {
-    const range = DataService.defaultRange(state.rawCandles);
+    const range = DataService.defaultRange(state.rawCandles, state.interval);
     setBacktestRange(range.from, range.to, null);
   });
 
@@ -599,6 +619,7 @@ async function bootstrap() {
 
     readSymbolFromQuery();
     renderWatchlist();
+    updateRangeInputs();
 
     try {
       initCharts();

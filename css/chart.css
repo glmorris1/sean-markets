@@ -109,7 +109,17 @@ button i,
   background: transparent;
 }
 
-.header-timeframes { margin-left: 8px; }
+.header-timeframes {
+  margin-left: 8px;
+  max-width: 360px;
+  overflow-x: auto;
+}
+
+.header-timeframes button {
+  min-width: 32px;
+  padding: 0 6px;
+  font-size: 12px;
+}
 
 .segmented {
   display: flex;
@@ -279,6 +289,23 @@ button i,
   align-items: end;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.range-hint {
+  align-self: center;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.range-controls input[type="datetime-local"] {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 168px;
 }
 
 .range-controls label {

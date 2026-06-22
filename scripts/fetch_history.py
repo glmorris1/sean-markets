@@ -26,8 +26,11 @@ SYMBOLS = [
 ]
 
 INTERVALS = {
-    "1d": {"interval": "1d", "range": "5y"},
+    "2m": {"interval": "2m", "range": "5d"},
+    "5m": {"interval": "5m", "range": "5d"},
+    "15m": {"interval": "15m", "range": "5d"},
     "1h": {"interval": "1h", "range": "2y"},
+    "1d": {"interval": "1d", "range": "5y"},
     "1wk": {"interval": "1wk", "range": "10y"},
 }
 
@@ -53,7 +56,7 @@ def fetch_chart(yahoo_symbol: str, interval: str, range_: str) -> dict:
         volume = quote["volume"][index]
         if None in (open_, high, low, close):
             continue
-        is_intraday = interval not in {"1d", "1wk", "1mo"}
+        is_intraday = interval not in {"1d", "1wk", "1mo", "5d"}
         bar_time: int | str = ts if is_intraday else datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
         candles.append(
             {
