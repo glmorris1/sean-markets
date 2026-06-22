@@ -23,11 +23,21 @@ const YahooClient = (() => {
       : new Date(timestamp * 1000).toISOString().slice(0, 10);
   }
 
-  async function fetchChart(symbol, uiInterval) {
+  async function fetchChart(symbol, uiInterval, { timeoutMs = 8000 } = {}) {
     const cfg = resolveConfig(uiInterval);
     const target = yahooSymbol(symbol);
     const endpoint = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(target)}?interval=${cfg.yahoo}&range=${cfg.range}`;
-    const response = await fetch(`${PROXY}${encodeURIComponent(endpoint)}`);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetch(`${PROXY}${encodeURIComponent(endpoint)}`, { signal: controller.signal });
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Yahoo Finance request timed out");
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+    }
     if (!response.ok) throw new Error(`Yahoo Finance request failed (${response.status})`);
     const payload = await response.json();
     const result = payload?.chart?.result?.[0];

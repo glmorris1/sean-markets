@@ -48,9 +48,9 @@ const DataService = (() => {
     return response.json();
   }
 
-  async function loadHistory(symbol, uiInterval, { preferLive = true } = {}) {
+  async function loadHistory(symbol, uiInterval, { preferLive = true, bypassCache = false } = {}) {
     const key = `${symbol}_${uiInterval}`;
-    if (cache.has(key)) return cache.get(key);
+    if (!bypassCache && cache.has(key)) return cache.get(key);
 
     let bundled = null;
     try {
@@ -61,7 +61,7 @@ const DataService = (() => {
 
     if (preferLive && window.YahooClient) {
       try {
-        const live = await YahooClient.fetchChart(symbol, uiInterval);
+        const live = await YahooClient.fetchChart(symbol, uiInterval, { timeoutMs: 8000 });
         const payload = live.candles.length >= (bundled?.candles?.length || 0) * 0.9 ? live : mergePayload(live, bundled);
         cache.set(key, payload);
         return payload;

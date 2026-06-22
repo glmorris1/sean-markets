@@ -20,6 +20,7 @@ const state = {
 };
 
 let chartReady = false;
+let loadToken = 0;
 
 function money(value) {
   const num = Number(value);
@@ -38,20 +39,19 @@ function movingAverage(values, period) {
 }
 
 function initCharts() {
-  if (typeof YahooChart === "undefined") {
-    throw new Error("Yahoo chart module failed to load.");
-  }
-  YahooChart.init(
+  const chart = window.YahooChart;
+  if (!chart) throw new Error("Yahoo chart module failed to load.");
+  chart.init(
     document.getElementById("chartContainer"),
     document.getElementById("volumeContainer")
   );
-  YahooChart.setTheme(document.querySelector(".app")?.dataset.theme || "dark");
+  chart.setTheme(document.querySelector(".app")?.dataset.theme || "dark");
   chartReady = true;
 }
 
 function applyChartType() {
   if (!chartReady) return;
-  YahooChart.setChartType(state.chartType);
+  window.YahooChart?.setChartType(state.chartType);
 }
 
 function setStatus(message, isError = false) {
@@ -77,8 +77,8 @@ function renderSeries() {
   const ma20 = movingAverage(closes, 20);
   const ema50 = movingAverage(closes, 50);
 
-  YahooChart.setIndicators(state.indicators);
-  YahooChart.setData(state.candles, { ma20, ema50 });
+  window.YahooChart?.setIndicators(state.indicators);
+  window.YahooChart?.setData(state.candles, { ma20, ema50 });
   applyChartType();
 
   if (state.indicators) {
@@ -92,47 +92,62 @@ function renderSeries() {
   if (state.backtestStart != null) {
     scrollChartToTime(state.backtestStart);
   } else {
-    YahooChart.fitContent();
+    window.YahooChart?.fitContent();
   }
   updateQuoteUI();
   drawSpark();
   renderWatchlist();
   renderScreener();
-  if (state.strategyReady && !state.suppressAutoBacktest) StrategyTester.update();
+  if (state.strategyReady && !state.suppressAutoBacktest) window.StrategyTester?.update?.();
+}
+
+function applyHistoryPayload(payload) {
+  state.meta = payload;
+  state.rawCandles = payload.candles;
+
+  if (!state.range.from && !state.range.to) {
+    state.range = DataService.defaultRange(state.rawCandles, state.interval);
+    document.getElementById("rangeFrom").value = state.range.from;
+    document.getElementById("rangeTo").value = state.range.to;
+  }
+
+  state.active.name = payload.name || state.active.name;
+  state.active.exchange = payload.exchange || state.active.exchange;
+  applyFilteredCandles();
+
+  const latest = state.rawCandles.at(-1);
+  const note = payload.sourceNote ? ` · ${payload.sourceNote}` : "";
+  setStatus(
+    `${payload.source} · ${DataService.intervalLabel(state.interval)} · latest ${DataService.formatAsOf(latest, state.interval)} · ${state.candles.length} bars in range${note}`
+  );
+  syncWatchlistQuote(state.active.symbol, latest);
 }
 
 async function loadMarketData() {
-  if (!state.active || state.loading) return;
+  if (!state.active) return;
+  const token = ++loadToken;
   state.loading = true;
   setStatus("Loading historical data…");
 
   try {
-    const payload = await DataService.loadHistory(state.active.symbol, state.interval);
-    state.meta = payload;
-    state.rawCandles = payload.candles;
+    const bundled = await DataService.loadHistory(state.active.symbol, state.interval, { preferLive: false });
+    if (token !== loadToken) return;
+    applyHistoryPayload(bundled);
 
-    if (!state.range.from && !state.range.to) {
-      state.range = DataService.defaultRange(state.rawCandles, state.interval);
-      document.getElementById("rangeFrom").value = state.range.from;
-      document.getElementById("rangeTo").value = state.range.to;
+    try {
+      const live = await DataService.loadHistory(state.active.symbol, state.interval, {
+        preferLive: true,
+        bypassCache: true
+      });
+      if (token !== loadToken) return;
+      applyHistoryPayload(live);
+    } catch (error) {
+      if (!state.rawCandles.length) throw error;
     }
-
-    state.active.name = payload.name || state.active.name;
-    state.active.exchange = payload.exchange || state.active.exchange;
-
-    applyFilteredCandles();
-
-    const latest = state.rawCandles.at(-1);
-    const fetched = new Date(payload.fetchedAt).toLocaleDateString();
-    const note = payload.sourceNote ? ` · ${payload.sourceNote}` : "";
-    setStatus(
-      `${payload.source} · ${DataService.intervalLabel(state.interval)} · latest ${DataService.formatAsOf(latest, state.interval)} · ${state.candles.length} bars in range${note}`
-    );
-    syncWatchlistQuote(state.active.symbol, latest);
   } catch (error) {
-    setStatus(error.message || "Failed to load market data.", true);
+    if (token === loadToken) setStatus(error.message || "Failed to load market data.", true);
   } finally {
-    state.loading = false;
+    if (token === loadToken) state.loading = false;
   }
 }
 
@@ -232,7 +247,7 @@ function drawSpark() {
 
 function safeSetMarkers(markers) {
   if (!chartReady) return;
-  YahooChart.setMarkers(markers || []);
+  window.YahooChart?.setMarkers(markers || []);
 }
 
 function candleToDateValue(time) {
@@ -263,8 +278,8 @@ function showStrategyTester() {
   document.querySelectorAll(".panel-content").forEach((el) => {
     el.classList.toggle("active", el.dataset.panel === "tester");
   });
-  StrategyTester?.selectTab?.("overview");
-  StrategyTester?.onResize?.();
+  window.StrategyTester?.selectTab?.("overview");
+  window.StrategyTester?.onResize?.();
 }
 
 function updateBacktestStartLabel() {
@@ -304,7 +319,7 @@ function setBacktestRange(from, to, startTime = null) {
 
 function scrollChartToTime(time) {
   if (!chartReady || !state.candles.length) return;
-  YahooChart.scrollToTime(time);
+  window.YahooChart?.scrollToTime(time);
 }
 
 function resolveBacktestStartIndex(random = false) {
@@ -370,8 +385,8 @@ function executeBacktest(triggerBtn = null, { random = false, keepRange = false 
     return false;
   }
 
-  if (!state.strategyReady) initStrategyTester();
-  if (!state.strategyReady || typeof StrategyTester?.run !== "function") {
+  initStrategyTester();
+  if (!state.strategyReady || typeof window.StrategyTester?.run !== "function") {
     setStatus("Strategy tester not ready — wait for data to load, then try again.", true);
     return false;
   }
@@ -388,9 +403,9 @@ function executeBacktest(triggerBtn = null, { random = false, keepRange = false 
   }
 
   showStrategyTester();
-  StrategyTester.selectTab("overview");
+  window.StrategyTester.selectTab("overview");
 
-  const ok = StrategyTester.run({ force: true });
+  const ok = window.StrategyTester.run({ force: true });
   if (ok) {
     flashButton(triggerBtn || document.getElementById("runBacktest") || document.getElementById("headerRunBacktest"));
     const startLabel = formatCandleLabel(startCandle.time);
@@ -409,47 +424,120 @@ function randomBacktestStart(triggerBtn = null) {
 }
 
 function bindEvents() {
-  document.querySelectorAll(".bottom-tabs [data-panel]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = btn.dataset.panel;
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest("button");
+    if (!target) return;
+
+    if (target.id === "headerRunBacktest") {
+      executeBacktest(target);
+      return;
+    }
+    if (target.id === "randomStart") {
+      randomBacktestStart(target);
+      return;
+    }
+    if (target.id === "applyRange") {
+      const from = document.getElementById("rangeFrom")?.value || "";
+      const to = document.getElementById("rangeTo")?.value || "";
+      const startIdx = from ? DataService.findCandleIndex(state.rawCandles, from) : 0;
+      const startTime = state.rawCandles[startIdx]?.time ?? null;
+      setBacktestRange(from, to, startTime);
+      executeBacktest(target, { keepRange: true });
+      return;
+    }
+    if (target.id === "resetRange") {
+      state.backtestStart = null;
+      const range = DataService.defaultRange(state.rawCandles, state.interval);
+      setBacktestRange(range.from, range.to, null);
+      updateBacktestStartLabel();
+      safeSetMarkers([]);
+      return;
+    }
+    if (target.id === "refreshData") {
+      DataService.clearCache();
+      state.range = { from: "", to: "" };
+      loadMarketData();
+      return;
+    }
+    if (target.id === "indicatorBtn") {
+      state.indicators = !state.indicators;
+      target.classList.toggle("active", state.indicators);
+      const row = document.getElementById("indicatorRow");
+      if (row) row.style.opacity = state.indicators ? "1" : "0.45";
+      renderSeries();
+      return;
+    }
+    if (target.id === "themeBtn") {
+      const app = document.querySelector(".app");
+      if (!app) return;
+      app.dataset.theme = app.dataset.theme === "dark" ? "light" : "dark";
+      if (chartReady) window.YahooChart?.setTheme(app.dataset.theme);
+      return;
+    }
+    if (target.id === "runBacktest") {
+      executeBacktest(target);
+      return;
+    }
+
+    const panelBtn = target.closest(".bottom-tabs [data-panel]");
+    if (panelBtn) {
+      const panel = panelBtn.dataset.panel;
       document.querySelectorAll(".bottom-tabs [data-panel]").forEach((b) => {
         b.classList.toggle("active", b.dataset.panel === panel);
       });
       document.querySelectorAll(".panel-content").forEach((el) => {
         el.classList.toggle("active", el.dataset.panel === panel);
       });
-      StrategyTester?.onResize?.();
-    });
-  });
-
-  document.getElementById("strategyTester")?.addEventListener("click", (e) => {
-    if (e.target.closest("#runBacktest")) {
-      executeBacktest(e.target.closest("#runBacktest"));
+      window.StrategyTester?.onResize?.();
       return;
     }
-    const tabBtn = e.target.closest("[data-st-tab]");
-    if (!tabBtn) return;
-    StrategyTester?.selectTab?.(tabBtn.dataset.stTab);
+
+    const tabBtn = target.closest("[data-st-tab]");
+    if (tabBtn) {
+      window.StrategyTester?.selectTab?.(tabBtn.dataset.stTab);
+      return;
+    }
+
+    const watchRow = target.closest(".watch-row");
+    if (watchRow) {
+      state.active = MARKETS.find((m) => m.symbol === watchRow.dataset.symbol) || state.active;
+      const search = document.getElementById("symbolSearch");
+      if (search) search.value = state.active.symbol;
+      state.range = { from: "", to: "" };
+      loadMarketData();
+      return;
+    }
+
+    const typeBtn = target.closest("#chartTypes button[data-type]");
+    if (typeBtn) {
+      state.chartType = typeBtn.dataset.type;
+      document.querySelectorAll("#chartTypes button").forEach((b) => b.classList.toggle("selected", b === typeBtn));
+      applyChartType();
+      return;
+    }
+
+    const intervalBtn = target.closest("#intervals button[data-interval]");
+    if (intervalBtn) {
+      state.interval = intervalBtn.dataset.interval;
+      document.querySelectorAll("#intervals button").forEach((b) => b.classList.toggle("selected", b === intervalBtn));
+      state.range = { from: "", to: "" };
+      updateRangeInputs();
+      loadMarketData();
+      return;
+    }
+
+    if (target.classList.contains("tool")) {
+      document.querySelectorAll(".tool").forEach((t) => t.classList.toggle("active", t === target));
+      return;
+    }
+
+    if (target.closest(".side-toggle")) {
+      document.querySelectorAll(".side-toggle button").forEach((b) => b.classList.remove("active"));
+      target.classList.add("active");
+    }
   });
 
-  document.getElementById("headerRunBacktest")?.addEventListener("click", (e) => {
-    executeBacktest(e.currentTarget);
-  });
-
-  document.getElementById("randomStart")?.addEventListener("click", (e) => {
-    randomBacktestStart(e.currentTarget);
-  });
-
-  document.getElementById("watchlist").addEventListener("click", (e) => {
-    const row = e.target.closest(".watch-row");
-    if (!row) return;
-    state.active = MARKETS.find((m) => m.symbol === row.dataset.symbol) || state.active;
-    document.getElementById("symbolSearch").value = state.active.symbol;
-    state.range = { from: "", to: "" };
-    loadMarketData();
-  });
-
-  document.getElementById("symbolSearch").addEventListener("change", (e) => {
+  document.getElementById("symbolSearch")?.addEventListener("change", (e) => {
     const hit = MARKETS.find((m) => m.symbol.toLowerCase() === e.target.value.toLowerCase());
     if (hit) {
       state.active = hit;
@@ -459,87 +547,20 @@ function bindEvents() {
     renderWatchlist(e.target.value);
   });
 
-  document.getElementById("symbolSearch").addEventListener("input", (e) => {
+  document.getElementById("symbolSearch")?.addEventListener("input", (e) => {
     renderWatchlist(e.target.value);
-  });
-
-  document.getElementById("chartTypes").addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-type]");
-    if (!btn) return;
-    state.chartType = btn.dataset.type;
-    document.querySelectorAll("#chartTypes button").forEach((b) => b.classList.toggle("selected", b === btn));
-    applyChartType();
-  });
-
-  document.getElementById("intervals").addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-interval]");
-    if (!btn) return;
-    state.interval = btn.dataset.interval;
-    document.querySelectorAll("#intervals button").forEach((b) => b.classList.toggle("selected", b === btn));
-    state.range = { from: "", to: "" };
-    updateRangeInputs();
-    loadMarketData();
-  });
-
-  document.getElementById("applyRange").addEventListener("click", () => {
-    const from = document.getElementById("rangeFrom").value;
-    const to = document.getElementById("rangeTo").value;
-    const startIdx = from ? DataService.findCandleIndex(state.rawCandles, from) : 0;
-    const startTime = state.rawCandles[startIdx]?.time ?? null;
-    setBacktestRange(from, to, startTime);
-    executeBacktest(document.getElementById("applyRange"), { keepRange: true });
-  });
-
-  document.getElementById("resetRange").addEventListener("click", () => {
-    state.backtestStart = null;
-    const range = DataService.defaultRange(state.rawCandles, state.interval);
-    setBacktestRange(range.from, range.to, null);
-    updateBacktestStartLabel();
-    safeSetMarkers([]);
-  });
-
-  document.getElementById("refreshData").addEventListener("click", async () => {
-    DataService.clearCache();
-    state.range = { from: "", to: "" };
-    await loadMarketData();
-  });
-
-  document.getElementById("indicatorBtn").addEventListener("click", () => {
-    state.indicators = !state.indicators;
-    document.getElementById("indicatorBtn").classList.toggle("active", state.indicators);
-    document.getElementById("indicatorRow").style.opacity = state.indicators ? "1" : "0.45";
-    renderSeries();
-  });
-
-  document.getElementById("themeBtn").addEventListener("click", () => {
-    const app = document.querySelector(".app");
-    app.dataset.theme = app.dataset.theme === "dark" ? "light" : "dark";
-    if (chartReady) YahooChart.setTheme(app.dataset.theme);
-  });
-
-  document.querySelectorAll(".tool").forEach((tool) => {
-    tool.addEventListener("click", () => {
-      document.querySelectorAll(".tool").forEach((t) => t.classList.toggle("active", t === tool));
-    });
-  });
-
-  document.querySelectorAll(".side-toggle button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".side-toggle button").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-    });
   });
 
   window.addEventListener("resize", () => {
     resizeCharts();
     drawSpark();
-    StrategyTester?.onResize?.();
+    window.StrategyTester?.onResize?.();
   });
 }
 
 function resizeCharts() {
   if (!chartReady) return;
-  YahooChart.resize();
+  window.YahooChart?.resize();
 }
 
 function readSymbolFromQuery() {
@@ -554,10 +575,10 @@ function readSymbolFromQuery() {
 }
 
 function initStrategyTester() {
-  if (state.strategyReady || typeof StrategyTester === "undefined" || typeof StrategyEngine === "undefined") {
-    return;
-  }
-  StrategyTester.init({
+  const tester = window.StrategyTester;
+  const engine = window.StrategyEngine;
+  if (state.strategyReady || !tester || !engine) return;
+  tester.init({
     getCandles: () => state.candles,
     getSymbol: () => state.active?.symbol || "",
     getBacktestStart: () => state.backtestStart,
