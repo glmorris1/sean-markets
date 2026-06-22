@@ -1,4 +1,7 @@
 let MARKETS = [];
+let BASE_MARKETS = [];
+const BASE_SYMBOLS = new Set();
+const CUSTOM_WATCHLIST_KEY = "sean-custom-watchlist";
 
 function minBacktestBars() {
   return DataService.minBacktestBars(state.interval);
@@ -33,6 +36,138 @@ function money(value, symbol = state.active?.symbol) {
 
 function findMarket(query) {
   return DataService.resolveSymbol?.(query) || MARKETS.find((m) => m.symbol.toLowerCase() === String(query).toLowerCase()) || null;
+}
+
+function loadCustomMarkets() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_WATCHLIST_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomMarkets(markets) {
+  localStorage.setItem(CUSTOM_WATCHLIST_KEY, JSON.stringify(markets));
+}
+
+function mergeWatchlist(base, custom) {
+  const seen = new Set(base.map((m) => m.symbol));
+  const merged = [...base];
+  custom.forEach((m) => {
+    if (!m?.symbol || seen.has(m.symbol)) return;
+    const entry = { ...m, custom: true };
+    merged.push(entry);
+    DataService.registerMarket?.(entry);
+    seen.add(m.symbol);
+  });
+  return merged;
+}
+
+function rebuildMarkets() {
+  MARKETS = mergeWatchlist(BASE_MARKETS, loadCustomMarkets());
+}
+
+function persistCustomQuote(market) {
+  if (!market?.custom) return;
+  const custom = loadCustomMarkets();
+  const idx = custom.findIndex((m) => m.symbol === market.symbol);
+  if (idx < 0) return;
+  custom[idx] = {
+    ...custom[idx],
+    price: market.price,
+    change: market.change,
+    volume: market.volume,
+    name: market.name,
+    exchange: market.exchange
+  };
+  saveCustomMarkets(custom);
+}
+
+async function addSymbolToWatchlist(symbol) {
+  const raw = String(symbol || "").trim();
+  if (!raw) throw new Error("Enter a symbol.");
+
+  const existing = MARKETS.find((m) => m.symbol.toUpperCase() === raw.toUpperCase());
+  if (existing) {
+    state.active = existing;
+    document.getElementById("symbolSearch").value = existing.symbol;
+    state.range = { from: "", to: "" };
+    renderWatchlist();
+    await loadMarketData();
+    return existing;
+  }
+
+  setStatus(`Looking up ${raw.toUpperCase()} on Yahoo Finance…`);
+  const entry = await DataService.lookupSymbol(raw);
+  const market = { ...entry, custom: true };
+  const custom = loadCustomMarkets();
+  if (!custom.some((m) => m.symbol === market.symbol)) {
+    custom.push(market);
+    saveCustomMarkets(custom);
+  }
+  rebuildMarkets();
+  state.active = MARKETS.find((m) => m.symbol === market.symbol) || market;
+  document.getElementById("symbolSearch").value = state.active.symbol;
+  state.range = { from: "", to: "" };
+  renderWatchlist();
+  await loadMarketData();
+  setStatus(`Added ${state.active.symbol} to watchlist`);
+  return state.active;
+}
+
+function removeSymbolFromWatchlist(symbol) {
+  if (BASE_SYMBOLS.has(symbol)) return;
+  saveCustomMarkets(loadCustomMarkets().filter((m) => m.symbol !== symbol));
+  rebuildMarkets();
+  if (state.active?.symbol === symbol) {
+    state.active = MARKETS[0] || null;
+    if (state.active) {
+      document.getElementById("symbolSearch").value = state.active.symbol;
+      state.range = { from: "", to: "" };
+      loadMarketData();
+    }
+  }
+  renderWatchlist(document.getElementById("symbolSearch")?.value || "");
+}
+
+function openAddSymbolDialog() {
+  const dialog = document.getElementById("addSymbolDialog");
+  const input = document.getElementById("addSymbolInput");
+  const error = document.getElementById("addSymbolError");
+  if (!dialog || !input) return;
+  error.textContent = "";
+  input.value = document.getElementById("symbolSearch")?.value?.trim() || "";
+  dialog.showModal();
+  input.focus();
+  input.select();
+}
+
+function bindAddSymbolDialog() {
+  const dialog = document.getElementById("addSymbolDialog");
+  const form = document.getElementById("addSymbolForm");
+  const input = document.getElementById("addSymbolInput");
+  const error = document.getElementById("addSymbolError");
+  const cancelBtn = document.getElementById("cancelAddSymbol");
+
+  document.getElementById("addSymbolBtn")?.addEventListener("click", openAddSymbolDialog);
+  cancelBtn?.addEventListener("click", () => dialog?.close());
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    error.textContent = "";
+    const submitBtn = document.getElementById("confirmAddSymbol");
+    submitBtn.disabled = true;
+    try {
+      await addSymbolToWatchlist(input.value);
+      dialog?.close();
+      form.reset();
+    } catch (err) {
+      error.textContent = err.message || "Could not add symbol.";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
 }
 
 function movingAverage(values, period) {
@@ -190,6 +325,7 @@ function syncWatchlistQuote(symbol, latest) {
   market.price = latest.close;
   const { pct } = DataService.dailyChange(state.rawCandles);
   market.change = Number(pct.toFixed(2));
+  persistCustomQuote(market);
 }
 
 function renderScreener() {
@@ -210,10 +346,16 @@ function renderScreener() {
 }
 
 function watchlistRow(m) {
+  const removeBtn = m.custom
+    ? `<button type="button" class="watch-remove" data-remove-symbol="${m.symbol}" aria-label="Remove ${m.symbol}">×</button>`
+    : "";
   return `
     <button class="watch-row ${state.active?.symbol === m.symbol ? "active" : ""}" type="button" data-symbol="${m.symbol}">
       <span><strong>${m.symbol}</strong><span>${m.name}</span></span>
-      <span><strong>${money(m.price, m.symbol)}</strong><span class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</span></span>
+      <span class="watch-side">
+        <span><strong>${money(m.price, m.symbol)}</strong><span class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</span></span>
+        ${removeBtn}
+      </span>
     </button>`;
 }
 
@@ -221,10 +363,14 @@ function renderWatchlist(filter = "") {
   const list = document.getElementById("watchlist");
   const needle = filter.toLowerCase();
   const visible = MARKETS.filter((m) => `${m.symbol} ${m.name}`.toLowerCase().includes(needle));
-  const futures = visible.filter((m) => m.assetClass === "futures");
-  const other = visible.filter((m) => m.assetClass !== "futures");
+  const custom = visible.filter((m) => m.custom);
+  const futures = visible.filter((m) => m.assetClass === "futures" && !m.custom);
+  const other = visible.filter((m) => m.assetClass !== "futures" && !m.custom);
   const sections = [];
 
+  if (custom.length) {
+    sections.push(`<div class="watch-section-label">Your watchlist</div>${custom.map(watchlistRow).join("")}`);
+  }
   if (other.length) {
     sections.push(`<div class="watch-section-label">Markets</div>${other.map(watchlistRow).join("")}`);
   }
@@ -518,6 +664,12 @@ function bindEvents() {
       return;
     }
 
+    const removeBtn = target.closest("[data-remove-symbol]");
+    if (removeBtn) {
+      removeSymbolFromWatchlist(removeBtn.dataset.removeSymbol);
+      return;
+    }
+
     const watchRow = target.closest(".watch-row");
     if (watchRow) {
       state.active = MARKETS.find((m) => m.symbol === watchRow.dataset.symbol) || state.active;
@@ -557,14 +709,23 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("symbolSearch")?.addEventListener("change", (e) => {
-    const hit = findMarket(e.target.value);
-    if (hit) {
-      state.active = hit;
-      e.target.value = hit.symbol;
-      state.range = { from: "", to: "" };
-      loadMarketData();
+  document.getElementById("symbolSearch")?.addEventListener("change", async (e) => {
+    const query = e.target.value.trim();
+    if (!query) return;
+    let hit = findMarket(query);
+    if (!hit) {
+      try {
+        hit = await addSymbolToWatchlist(query);
+      } catch (error) {
+        setStatus(error.message || "Symbol not found.", true);
+        renderWatchlist(query);
+        return;
+      }
     }
+    state.active = hit;
+    e.target.value = hit.symbol;
+    state.range = { from: "", to: "" };
+    loadMarketData();
     renderWatchlist(e.target.value);
   });
 
@@ -584,17 +745,6 @@ function resizeCharts() {
   window.YahooChart?.resize();
 }
 
-function readSymbolFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  const symbol = params.get("symbol");
-  if (!symbol) return;
-  const hit = findMarket(symbol);
-  if (hit) {
-    state.active = hit;
-    document.getElementById("symbolSearch").value = hit.symbol;
-  }
-}
-
 function initStrategyTester() {
   const tester = window.StrategyTester;
   const engine = window.StrategyEngine;
@@ -612,13 +762,17 @@ function initStrategyTester() {
 
 async function bootstrap() {
   bindEvents();
+  bindAddSymbolDialog();
   initStrategyTester();
 
   try {
     if (window.lucide) window.lucide.createIcons();
 
     const manifest = await DataService.loadManifest();
-    MARKETS = manifest.symbols || [];
+    BASE_MARKETS = manifest.symbols || [];
+    BASE_SYMBOLS.clear();
+    BASE_MARKETS.forEach((m) => BASE_SYMBOLS.add(m.symbol));
+    MARKETS = mergeWatchlist(BASE_MARKETS, loadCustomMarkets());
     if (!MARKETS.length) throw new Error("No symbols in manifest.");
     state.active = MARKETS[0];
 
@@ -626,7 +780,20 @@ async function bootstrap() {
       b.classList.toggle("selected", b.dataset.interval === state.interval);
     });
 
-    readSymbolFromQuery();
+    const querySymbol = new URLSearchParams(window.location.search).get("symbol");
+    if (querySymbol) {
+      const hit = findMarket(querySymbol);
+      if (hit) {
+        state.active = hit;
+        document.getElementById("symbolSearch").value = hit.symbol;
+      } else {
+        try {
+          await addSymbolToWatchlist(querySymbol);
+        } catch (error) {
+          setStatus(error.message || `Could not load ${querySymbol}.`, true);
+        }
+      }
+    }
     renderWatchlist();
     updateRangeInputs();
 

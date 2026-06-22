@@ -67,10 +67,23 @@
         <aside class="watchlist-panel">
           <div class="panel-top">
             <h2>Watchlist</h2>
-            <button type="button" aria-label="Add symbol"><i data-lucide="plus"></i></button>
+            <button type="button" id="addSymbolBtn" aria-label="Add symbol"><i data-lucide="plus"></i></button>
           </div>
           <div class="watchlist" id="watchlist"></div>
         </aside>
+
+        <dialog id="addSymbolDialog" class="add-symbol-dialog">
+          <form method="dialog" id="addSymbolForm">
+            <h3>Add to watchlist</h3>
+            <p>Enter a ticker — stocks, ETFs, crypto, or futures. Data loads from Yahoo Finance.</p>
+            <input id="addSymbolInput" type="text" placeholder="e.g. GOOGL, AMD, EURUSD" autocomplete="off" required />
+            <p class="add-symbol-error" id="addSymbolError"></p>
+            <div class="add-symbol-actions">
+              <button type="button" class="range-btn ghost" id="cancelAddSymbol">Cancel</button>
+              <button type="submit" class="range-btn" id="confirmAddSymbol">Add symbol</button>
+            </div>
+          </form>
+        </dialog>
 
         <section class="chart-area">
           <div class="symbol-bar">

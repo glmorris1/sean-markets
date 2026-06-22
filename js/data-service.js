@@ -266,6 +266,62 @@ const DataService = (() => {
     cache.clear();
   }
 
+  function guessAssetClass(symbol) {
+    const key = String(symbol || "").toUpperCase();
+    if (key.endsWith("USD") && key.length > 3) return "crypto";
+    if (key.endsWith("=F") || ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG"].includes(key)) return "futures";
+    return "stock";
+  }
+
+  function marketFromPayload(symbol, payload) {
+    const candles = payload.candles || [];
+    const latest = candles.at(-1);
+    const prev = candles.at(-2);
+    const changePct = prev?.close ? ((latest.close - prev.close) / prev.close) * 100 : 0;
+    const assetClass = guessAssetClass(symbol);
+    return {
+      symbol: String(symbol).toUpperCase(),
+      name: payload.name || symbol,
+      exchange: payload.exchange || "Yahoo Finance",
+      yahoo: yahooTicker(symbol),
+      assetClass,
+      newsCurrencies: assetClass === "futures" && ["CL", "GC", "SI", "NG"].includes(String(symbol).toUpperCase())
+        ? ["USD"]
+        : ["USD"],
+      newsKeywords: [],
+      price: latest?.close ?? 0,
+      change: Number(changePct.toFixed(2)),
+      volume: latest ? formatVolume(latest.volume) : "—"
+    };
+  }
+
+  function registerMarket(entry) {
+    if (!entry?.symbol) return entry;
+    const normalized = { ...entry, symbol: String(entry.symbol).toUpperCase() };
+    symbolIndex.set(normalized.symbol, normalized);
+    if (normalized.yahoo) symbolIndex.set(String(normalized.yahoo).toUpperCase(), normalized);
+    if (!manifestCache) manifestCache = { symbols: [] };
+    if (!manifestCache.symbols.some((m) => m.symbol === normalized.symbol)) {
+      manifestCache.symbols.push(normalized);
+    }
+    return normalized;
+  }
+
+  async function lookupSymbol(symbol) {
+    const raw = String(symbol || "").trim();
+    if (!raw) throw new Error("Enter a symbol.");
+    const existing = resolveSymbol(raw);
+    if (existing) return existing;
+
+    if (!window.YahooClient?.fetchChart) {
+      throw new Error("Yahoo client unavailable.");
+    }
+
+    const payload = await YahooClient.fetchChart(raw, "D", { timeoutMs: 10000 });
+    if (!payload.candles?.length) throw new Error(`No Yahoo data for ${raw.toUpperCase()}`);
+    return registerMarket(marketFromPayload(raw, payload));
+  }
+
   return {
     INTERVALS,
     getConfig,
@@ -287,7 +343,10 @@ const DataService = (() => {
     clearCache,
     fileInterval,
     findCandleIndex,
-    candleEpoch
+    candleEpoch,
+    lookupSymbol,
+    registerMarket,
+    marketFromPayload
   };
 })();
 
