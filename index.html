@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sean — Track All Markets</title>
+    <meta name="description" content="Sean — where the world does markets. Charts, screeners, and community ideas." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/site.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="js/site.js" defer></script>
+  </head>
+  <body>
+    <header class="top-nav">
+      <a class="brand" href="index.html" aria-label="Sean home">
+        <span class="brand-mark">S</span>
+        <span class="brand-name">Sean</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <button type="button">Products</button>
+        <button type="button">Community</button>
+        <button type="button">Markets</button>
+        <button type="button">Brokers</button>
+        <button type="button">More</button>
+      </nav>
+      <div class="nav-actions">
+        <button class="search-trigger" type="button" id="openSearch" aria-label="Search">
+          <i data-lucide="search"></i>
+          <span>Search</span>
+        </button>
+        <button class="ghost" type="button">EN</button>
+        <a class="cta" href="chart.html">Get started</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Sean · Track all markets</p>
+          <h1>The best trades require research, then commitment.</h1>
+          <p class="lede">Join millions of traders using Sean for charting, screeners, alerts, and community ideas — all in one workspace.</p>
+          <div class="hero-actions">
+            <a class="cta large" href="chart.html">Get started for free</a>
+            <span class="fine-print">$0 forever, no credit card needed</span>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="orbit-card main">
+            <div class="orbit-header">
+              <span>AAPL</span>
+              <strong class="positive">+0.74%</strong>
+            </div>
+            <canvas id="heroChart"></canvas>
+          </div>
+          <div class="orbit-card side">
+            <span>BTCUSD</span>
+            <strong>64,642</strong>
+            <em class="positive">+1.48%</em>
+          </div>
+          <div class="orbit-card side alt">
+            <span>SPX</span>
+            <strong>5,432</strong>
+            <em class="positive">+0.28%</em>
+          </div>
+        </div>
+      </section>
+
+      <section class="ticker-strip" aria-label="Market ticker">
+        <div class="ticker-track" id="tickerTrack"></div>
+      </section>
+
+      <section class="section markets-block">
+        <div class="section-head">
+          <div>
+            <h2>Where the world does markets</h2>
+            <p>Join traders and investors taking the future into their own hands.</p>
+          </div>
+          <a class="text-link" href="chart.html">Explore features →</a>
+        </div>
+        <div class="market-grid" id="marketGrid"></div>
+      </section>
+
+      <section class="section ideas-block">
+        <div class="section-head">
+          <div>
+            <h2>Community ideas</h2>
+            <p>Editors' picks from the Sean community.</p>
+          </div>
+          <div class="pill-tabs">
+            <button class="active" type="button">Editors' picks</button>
+            <button type="button">Popular</button>
+            <button type="button">More</button>
+          </div>
+        </div>
+        <div class="ideas-grid" id="ideasGrid"></div>
+      </section>
+
+      <section class="section features-block">
+        <div class="feature-card">
+          <i data-lucide="line-chart"></i>
+          <h3>Advanced charting</h3>
+          <p>Candlesticks, indicators, drawing tools, and multi-timeframe analysis in a TradingView-grade workspace.</p>
+        </div>
+        <div class="feature-card">
+          <i data-lucide="radar"></i>
+          <h3>Screeners &amp; alerts</h3>
+          <p>Filter thousands of symbols, set price alerts, and monitor your watchlists in real time.</p>
+        </div>
+        <div class="feature-card">
+          <i data-lucide="users"></i>
+          <h3>Social trading</h3>
+          <p>Share ideas, follow top contributors, and learn from annotated charts across every asset class.</p>
+        </div>
+      </section>
+
+      <section class="cta-band">
+        <h2>Ready to chart like a pro?</h2>
+        <p>Launch the Sean terminal and start analyzing markets in seconds.</p>
+        <a class="cta large" href="chart.html">Launch chart workspace</a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-brand">
+        <span class="brand-mark">S</span>
+        <span>Sean</span>
+      </div>
+      <div class="footer-links">
+        <a href="chart.html">Charts</a>
+        <a href="#">Screeners</a>
+        <a href="#">Community</a>
+        <a href="#">Pricing</a>
+      </div>
+      <p class="footer-note">Sean is an independent demo inspired by modern charting platforms.</p>
+    </footer>
+
+    <dialog class="search-dialog" id="searchDialog">
+      <form method="dialog" class="search-panel">
+        <div class="search-panel-head">
+          <i data-lucide="search"></i>
+          <input id="globalSearch" type="search" placeholder="Search symbols, ideas, scripts..." autofocus />
+          <button type="button" id="closeSearch" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </form>
+    </dialog>
+  </body>
+</html>

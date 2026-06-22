@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sean Chart — AAPL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/chart.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
+    <script src="js/chart.js" defer></script>
+  </head>
+  <body>
+    <div class="app" data-theme="dark">
+      <header class="chart-header">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">S</span>
+          <span>Sean</span>
+        </a>
+        <div class="symbol-search">
+          <i data-lucide="search"></i>
+          <input id="symbolSearch" type="search" placeholder="Symbol" value="AAPL" autocomplete="off" />
+        </div>
+        <div class="header-timeframes segmented" id="intervals">
+          <button type="button" data-interval="1">1m</button>
+          <button type="button" data-interval="5">5m</button>
+          <button type="button" data-interval="15">15m</button>
+          <button class="selected" type="button" data-interval="60">1h</button>
+          <button type="button" data-interval="240">4h</button>
+          <button type="button" data-interval="D">D</button>
+          <button type="button" data-interval="W">W</button>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" type="button" id="indicatorBtn" title="Indicators">
+            <i data-lucide="sliders-horizontal"></i>
+          </button>
+          <button class="icon-btn" type="button" title="Alerts">
+            <i data-lucide="bell-plus"></i>
+          </button>
+          <button class="icon-btn" type="button" id="themeBtn" title="Theme">
+            <i data-lucide="sun"></i>
+          </button>
+          <button class="publish-btn" type="button">
+            <i data-lucide="share-2"></i>
+            <span>Publish</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="tool-rail" aria-label="Drawing tools">
+          <button class="tool active" type="button" title="Cursor"><i data-lucide="mouse-pointer-2"></i></button>
+          <button class="tool" type="button" title="Trend line"><i data-lucide="trending-up"></i></button>
+          <button class="tool" type="button" title="Fibonacci"><i data-lucide="git-branch"></i></button>
+          <button class="tool" type="button" title="Brush"><i data-lucide="paintbrush"></i></button>
+          <button class="tool" type="button" title="Text"><i data-lucide="type"></i></button>
+          <button class="tool" type="button" title="Measure"><i data-lucide="ruler"></i></button>
+          <button class="tool" type="button" title="Magnet"><i data-lucide="magnet"></i></button>
+        </aside>
+
+        <aside class="watchlist-panel">
+          <div class="panel-top">
+            <h2>Watchlist</h2>
+            <button type="button" aria-label="Add symbol"><i data-lucide="plus"></i></button>
+          </div>
+          <div class="watchlist" id="watchlist"></div>
+        </aside>
+
+        <section class="chart-area">
+          <div class="symbol-bar">
+            <div>
+              <h1 id="symbolTitle">AAPL</h1>
+              <p id="symbolSubtitle">Apple Inc. · NASDAQ</p>
+            </div>
+            <div class="quote">
+              <span id="lastPrice">201.22</span>
+              <strong id="lastChange" class="positive">+0.74%</strong>
+            </div>
+            <div class="chart-types segmented" id="chartTypes">
+              <button class="selected" type="button" data-type="candles">Candles</button>
+              <button type="button" data-type="line">Line</button>
+              <button type="button" data-type="area">Area</button>
+            </div>
+          </div>
+          <div class="indicator-row" id="indicatorRow">
+            <span>MA 20 <em id="ma20Val">—</em></span>
+            <span>EMA 50 <em id="ema50Val">—</em></span>
+            <span>Vol <em id="volVal">48.1M</em></span>
+          </div>
+          <div id="chartContainer" class="chart-container"></div>
+          <div id="volumeContainer" class="volume-container"></div>
+
+          <section class="bottom-panel">
+            <div class="bottom-tabs">
+              <button class="active" type="button">Stock Screener</button>
+              <button type="button">Pine Editor</button>
+              <button type="button">Strategy Tester</button>
+              <button type="button">Trading Panel</button>
+            </div>
+            <div class="screener-table">
+              <span>Symbol</span><span>Last</span><span>Chg%</span><span>Volume</span><span>Signal</span>
+              <strong>AAPL</strong><strong>201.22</strong><strong class="positive">+0.74</strong><strong>48.1M</strong><strong>MA cross</strong>
+              <strong>NVDA</strong><strong>168.44</strong><strong class="negative">-1.21</strong><strong>62.8M</strong><strong>Pullback</strong>
+              <strong>TSLA</strong><strong>322.16</strong><strong class="positive">+1.88</strong><strong>94.3M</strong><strong>Breakout</strong>
+            </div>
+          </section>
+        </section>
+
+        <aside class="details-panel">
+          <div class="panel-top">
+            <h2 id="detailsSymbol">AAPL</h2>
+            <button type="button"><i data-lucide="star"></i></button>
+          </div>
+          <div class="mini-spark"><canvas id="sparkCanvas"></canvas></div>
+          <div class="stats-grid">
+            <div><span>Open</span><strong id="statOpen">—</strong></div>
+            <div><span>High</span><strong id="statHigh">—</strong></div>
+            <div><span>Low</span><strong id="statLow">—</strong></div>
+            <div><span>Volume</span><strong id="statVolume">—</strong></div>
+          </div>
+          <form class="order-form">
+            <div class="side-toggle">
+              <button class="buy active" type="button">Buy</button>
+              <button class="sell" type="button">Sell</button>
+            </div>
+            <label><span>Order</span><select><option>Limit</option><option>Market</option></select></label>
+            <label><span>Qty</span><input type="number" value="10" min="1" /></label>
+            <label><span>Price</span><input id="limitPrice" type="number" step="0.01" /></label>
+            <button class="submit-order" type="button">Place paper order</button>
+          </form>
+          <section class="news-feed">
+            <h3>Market pulse</h3>
+            <article><time>14:08</time><p>Large-cap tech holds gains as volume builds into the close.</p></article>
+            <article><time>13:41</time><p>Semiconductor breadth improves after a mixed morning.</p></article>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </body>
+</html>
