@@ -1,0 +1,70 @@
+{
+  "fetchedAt": "2026-06-22T00:19:33.182875+00:00",
+  "source": "Yahoo Finance",
+  "symbols": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "exchange": "NASDAQ",
+      "price": 298.01,
+      "change": 0.7,
+      "volume": "86.0M"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corp.",
+      "exchange": "NASDAQ",
+      "price": 379.4,
+      "change": 0.13,
+      "volume": "59.7M"
+    },
+    {
+      "symbol": "TSLA",
+      "name": "Tesla Inc.",
+      "exchange": "NASDAQ",
+      "price": 400.49,
+      "change": 1.04,
+      "volume": "58.4M"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corp.",
+      "exchange": "NASDAQ",
+      "price": 210.69,
+      "change": 2.95,
+      "volume": "241.3M"
+    },
+    {
+      "symbol": "META",
+      "name": "Meta Platforms",
+      "exchange": "NASDAQ",
+      "price": 577.22,
+      "change": 1.7,
+      "volume": "28.8M"
+    },
+    {
+      "symbol": "SPY",
+      "name": "S&P 500 ETF",
+      "exchange": "NYSE Arca",
+      "price": 746.74,
+      "change": 0.78,
+      "volume": "80.9M"
+    },
+    {
+      "symbol": "BTCUSD",
+      "name": "Bitcoin",
+      "exchange": "CRYPTO",
+      "price": 63625.9883,
+      "change": -0.96,
+      "volume": "16.2B"
+    },
+    {
+      "symbol": "ETHUSD",
+      "name": "Ethereum",
+      "exchange": "CRYPTO",
+      "price": 1715.8101,
+      "change": -1.35,
+      "volume": "8.5B"
+    }
+  ]
+}

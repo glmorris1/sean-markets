@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/chart.css" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
+    <script src="js/data-service.js" defer></script>
     <script src="js/chart.js" defer></script>
   </head>
   <body>
@@ -24,12 +25,8 @@
           <input id="symbolSearch" type="search" placeholder="Symbol" value="AAPL" autocomplete="off" />
         </div>
         <div class="header-timeframes segmented" id="intervals">
-          <button type="button" data-interval="1">1m</button>
-          <button type="button" data-interval="5">5m</button>
-          <button type="button" data-interval="15">15m</button>
-          <button class="selected" type="button" data-interval="60">1h</button>
-          <button type="button" data-interval="240">4h</button>
-          <button type="button" data-interval="D">D</button>
+          <button type="button" data-interval="60">1h</button>
+          <button class="selected" type="button" data-interval="D">D</button>
           <button type="button" data-interval="W">W</button>
         </div>
         <div class="header-actions">
@@ -84,10 +81,25 @@
               <button type="button" data-type="area">Area</button>
             </div>
           </div>
+          <div class="data-bar">
+            <span id="dataStatus">Loading historical data…</span>
+            <div class="range-controls">
+              <label>
+                <span>From</span>
+                <input id="rangeFrom" type="date" />
+              </label>
+              <label>
+                <span>To</span>
+                <input id="rangeTo" type="date" />
+              </label>
+              <button class="range-btn" type="button" id="applyRange">Apply range</button>
+              <button class="range-btn ghost" type="button" id="resetRange">Reset</button>
+            </div>
+          </div>
           <div class="indicator-row" id="indicatorRow">
             <span>MA 20 <em id="ma20Val">—</em></span>
             <span>EMA 50 <em id="ema50Val">—</em></span>
-            <span>Vol <em id="volVal">48.1M</em></span>
+            <span>Vol <em id="volVal">—</em></span>
           </div>
           <div id="chartContainer" class="chart-container"></div>
           <div id="volumeContainer" class="volume-container"></div>

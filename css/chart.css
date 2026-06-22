@@ -240,8 +240,66 @@ button {
 .chart-area {
   min-height: 0;
   display: grid;
-  grid-template-rows: 64px auto 1fr 100px 150px;
+  grid-template-rows: 64px auto auto 1fr 100px 150px;
   background: var(--bg);
+}
+
+.data-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+
+#dataStatus {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#dataStatus.error { color: var(--red); }
+
+.range-controls {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.range-controls label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.range-controls input[type="date"] {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.range-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.range-btn.ghost {
+  background: var(--panel-2);
+  color: var(--text);
 }
 
 .symbol-bar {

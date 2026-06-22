@@ -1,20 +1,15 @@
-const MARKETS = [
-  { symbol: "AAPL", name: "Apple Inc.", exchange: "NASDAQ", price: 201.22, change: 0.74, volume: "48.1M" },
-  { symbol: "MSFT", name: "Microsoft Corp.", exchange: "NASDAQ", price: 478.88, change: 0.51, volume: "22.7M" },
-  { symbol: "TSLA", name: "Tesla Inc.", exchange: "NASDAQ", price: 322.16, change: 1.88, volume: "94.3M" },
-  { symbol: "NVDA", name: "NVIDIA Corp.", exchange: "NASDAQ", price: 168.44, change: -1.21, volume: "62.8M" },
-  { symbol: "META", name: "Meta Platforms", exchange: "NASDAQ", price: 711.44, change: -0.42, volume: "16.9M" },
-  { symbol: "BTCUSD", name: "Bitcoin", exchange: "CRYPTO", price: 64642.12, change: 1.48, volume: "31.4B" },
-  { symbol: "ETHUSD", name: "Ethereum", exchange: "CRYPTO", price: 3184.8, change: -0.36, volume: "14.7B" },
-  { symbol: "SPY", name: "S&P 500 ETF", exchange: "NYSE Arca", price: 612.22, change: 0.28, volume: "71.5M" }
-];
+let MARKETS = [];
 
 const state = {
-  active: MARKETS[0],
+  active: null,
   chartType: "candles",
-  interval: "60",
+  interval: "D",
   indicators: true,
-  candles: []
+  candles: [],
+  rawCandles: [],
+  meta: null,
+  range: { from: "", to: "" },
+  loading: false
 };
 
 let priceChart = null;
@@ -26,52 +21,17 @@ let volumeSeries = null;
 let ma20Series = null;
 let ema50Series = null;
 
-const els = {};
-
 function money(value) {
   return value > 1000
     ? value.toLocaleString("en-US", { maximumFractionDigits: 2 })
     : value.toFixed(2);
 }
 
-function seededNoise(seed) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function buildCandles(market, count = 120) {
-  const base = market.price / (1 + market.change / 100);
-  let cursor = base;
-  const seedBase = market.symbol.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0);
-  const now = Math.floor(Date.now() / 1000);
-  const step = 3600;
-
-  return Array.from({ length: count }, (_, index) => {
-    const drift = market.change / 100 / count;
-    const wave = Math.sin(index / 5 + seedBase) * 0.12;
-    const noise = (seededNoise(seedBase + index * 7) - 0.45) * 0.55;
-    const open = cursor;
-    const close = Math.max(1, open * (1 + drift + (wave + noise) / 100));
-    const spread = Math.abs(close - open) + market.price * (0.004 + seededNoise(seedBase + index) * 0.014);
-    const high = Math.max(open, close) + spread * (0.45 + seededNoise(seedBase + index * 3));
-    const low = Math.min(open, close) - spread * (0.35 + seededNoise(seedBase + index * 5));
-    cursor = close;
-    return {
-      time: now - (count - index) * step,
-      open,
-      high,
-      low,
-      close,
-      value: Math.round(spread * market.price * 0.02)
-    };
-  });
-}
-
 function movingAverage(values, period) {
   return values.map((_, index) => {
     if (index < period - 1) return null;
     const slice = values.slice(index - period + 1, index + 1);
-    return slice.reduce((sum, v) => sum + v, 0) / period;
+    return slice.reduce((sum, value) => sum + value, 0) / period;
   });
 }
 
@@ -148,8 +108,23 @@ function applyChartType() {
   areaSeries.applyOptions({ visible: state.chartType === "area" });
 }
 
-function updateSeries() {
-  state.candles = buildCandles(state.active);
+function setStatus(message, isError = false) {
+  const el = document.getElementById("dataStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("error", isError);
+}
+
+function applyFilteredCandles() {
+  state.candles = DataService.filterByDateRange(state.rawCandles, state.range.from, state.range.to);
+  if (!state.candles.length) {
+    setStatus("No bars in selected backtest range.", true);
+    return;
+  }
+  renderSeries();
+}
+
+function renderSeries() {
   const closes = state.candles.map((c) => c.close);
   const ma20 = movingAverage(closes, 20);
   const ema50 = movingAverage(closes, 50);
@@ -159,7 +134,7 @@ function updateSeries() {
   areaSeries.setData(state.candles.map((c) => ({ time: c.time, value: c.close })));
   volumeSeries.setData(state.candles.map((c) => ({
     time: c.time,
-    value: c.value,
+    value: c.volume,
     color: c.close >= c.open ? "rgba(38,166,154,0.5)" : "rgba(239,83,80,0.5)"
   })));
 
@@ -181,25 +156,59 @@ function updateSeries() {
   renderWatchlist();
 }
 
+async function loadMarketData() {
+  if (!state.active || state.loading) return;
+  state.loading = true;
+  setStatus("Loading historical data…");
+
+  try {
+    const payload = await DataService.loadHistory(state.active.symbol, state.interval);
+    state.meta = payload;
+    state.rawCandles = payload.candles;
+
+    if (!state.range.from && !state.range.to) {
+      state.range = DataService.defaultRange(state.rawCandles);
+      document.getElementById("rangeFrom").value = state.range.from;
+      document.getElementById("rangeTo").value = state.range.to;
+    }
+
+    state.active.name = payload.name || state.active.name;
+    state.active.exchange = payload.exchange || state.active.exchange;
+
+    applyFilteredCandles();
+
+    const fetched = new Date(payload.fetchedAt).toLocaleDateString();
+    const fallback = DataService.usesHourlyFallback(state.interval) ? " (hourly fallback)" : "";
+    setStatus(
+      `${payload.source} · ${DataService.intervalLabel(state.interval)}${fallback} · ${state.candles.length} bars · updated ${fetched}`
+    );
+  } catch (error) {
+    setStatus(error.message || "Failed to load market data.", true);
+  } finally {
+    state.loading = false;
+  }
+}
+
 function updateQuoteUI() {
+  if (!state.candles.length) return;
   const first = state.candles[0];
   const high = Math.max(...state.candles.map((c) => c.high));
   const low = Math.min(...state.candles.map((c) => c.low));
-  const last = state.candles.at(-1).close;
-  const change = ((last - first.open) / first.open) * 100;
+  const last = state.candles.at(-1);
+  const change = ((last.close - first.open) / first.open) * 100;
 
   document.getElementById("symbolTitle").textContent = state.active.symbol;
   document.getElementById("symbolSubtitle").textContent = `${state.active.name} · ${state.active.exchange}`;
   document.getElementById("detailsSymbol").textContent = state.active.symbol;
-  document.getElementById("lastPrice").textContent = money(last);
+  document.getElementById("lastPrice").textContent = money(last.close);
   document.getElementById("lastChange").textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
   document.getElementById("lastChange").className = change >= 0 ? "positive" : "negative";
   document.getElementById("statOpen").textContent = money(first.open);
   document.getElementById("statHigh").textContent = money(high);
   document.getElementById("statLow").textContent = money(low);
-  document.getElementById("statVolume").textContent = state.active.volume;
-  document.getElementById("volVal").textContent = state.active.volume;
-  document.getElementById("limitPrice").value = last.toFixed(2);
+  document.getElementById("statVolume").textContent = DataService.formatVolume(last.volume);
+  document.getElementById("volVal").textContent = DataService.formatVolume(last.volume);
+  document.getElementById("limitPrice").value = last.close.toFixed(2);
   document.title = `Sean Chart — ${state.active.symbol}`;
 }
 
@@ -209,7 +218,7 @@ function renderWatchlist(filter = "") {
     `${m.symbol} ${m.name}`.toLowerCase().includes(filter.toLowerCase())
   );
   list.innerHTML = visible.map((m) => `
-    <button class="watch-row ${m.symbol === state.active.symbol ? "active" : ""}" type="button" data-symbol="${m.symbol}">
+    <button class="watch-row ${state.active?.symbol === m.symbol ? "active" : ""}" type="button" data-symbol="${m.symbol}">
       <span><strong>${m.symbol}</strong><span>${m.name}</span></span>
       <span><strong>${money(m.price)}</strong><span class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</span></span>
     </button>
@@ -218,13 +227,14 @@ function renderWatchlist(filter = "") {
 
 function drawSpark() {
   const canvas = document.getElementById("sparkCanvas");
+  if (!canvas || !state.candles.length) return;
   const rect = canvas.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
   canvas.width = Math.max(1, Math.floor(rect.width * ratio));
   canvas.height = Math.max(1, Math.floor(rect.height * ratio));
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  const closes = state.candles.map((c) => c.close);
+  const closes = state.candles.slice(-80).map((c) => c.close);
   const max = Math.max(...closes);
   const min = Math.min(...closes);
   const w = rect.width;
@@ -249,16 +259,23 @@ function bindEvents() {
     const row = e.target.closest(".watch-row");
     if (!row) return;
     state.active = MARKETS.find((m) => m.symbol === row.dataset.symbol) || state.active;
-    updateSeries();
+    document.getElementById("symbolSearch").value = state.active.symbol;
+    state.range = { from: "", to: "" };
+    loadMarketData();
+  });
+
+  document.getElementById("symbolSearch").addEventListener("change", (e) => {
+    const hit = MARKETS.find((m) => m.symbol.toLowerCase() === e.target.value.toLowerCase());
+    if (hit) {
+      state.active = hit;
+      state.range = { from: "", to: "" };
+      loadMarketData();
+    }
+    renderWatchlist(e.target.value);
   });
 
   document.getElementById("symbolSearch").addEventListener("input", (e) => {
     renderWatchlist(e.target.value);
-    const hit = MARKETS.find((m) => m.symbol.toLowerCase() === e.target.value.toLowerCase());
-    if (hit) {
-      state.active = hit;
-      updateSeries();
-    }
   });
 
   document.getElementById("chartTypes").addEventListener("click", (e) => {
@@ -274,14 +291,28 @@ function bindEvents() {
     if (!btn) return;
     state.interval = btn.dataset.interval;
     document.querySelectorAll("#intervals button").forEach((b) => b.classList.toggle("selected", b === btn));
-    updateSeries();
+    state.range = { from: "", to: "" };
+    loadMarketData();
+  });
+
+  document.getElementById("applyRange").addEventListener("click", () => {
+    state.range.from = document.getElementById("rangeFrom").value;
+    state.range.to = document.getElementById("rangeTo").value;
+    applyFilteredCandles();
+  });
+
+  document.getElementById("resetRange").addEventListener("click", () => {
+    state.range = DataService.defaultRange(state.rawCandles);
+    document.getElementById("rangeFrom").value = state.range.from;
+    document.getElementById("rangeTo").value = state.range.to;
+    applyFilteredCandles();
   });
 
   document.getElementById("indicatorBtn").addEventListener("click", () => {
     state.indicators = !state.indicators;
     document.getElementById("indicatorBtn").classList.toggle("active", state.indicators);
     document.getElementById("indicatorRow").style.opacity = state.indicators ? "1" : "0.45";
-    updateSeries();
+    renderSeries();
   });
 
   document.getElementById("themeBtn").addEventListener("click", () => {
@@ -325,15 +356,19 @@ function readSymbolFromQuery() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (window.lucide) window.lucide.createIcons();
+
+  const manifest = await DataService.loadManifest();
+  MARKETS = manifest.symbols;
+  state.active = MARKETS[0];
+
+  document.querySelectorAll("#intervals button").forEach((b) => {
+    b.classList.toggle("selected", b.dataset.interval === state.interval);
+  });
+
   readSymbolFromQuery();
   initCharts();
   bindEvents();
-  updateSeries();
-  setInterval(() => {
-    const jitter = (Math.random() - 0.48) * state.active.price * 0.001;
-    state.active.price = Math.max(1, state.active.price + jitter);
-    updateSeries();
-  }, 8000);
+  await loadMarketData();
 });
