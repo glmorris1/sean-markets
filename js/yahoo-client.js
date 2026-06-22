@@ -70,3 +70,5 @@ const YahooClient = (() => {
 
   return { fetchChart, yahooSymbol };
 })();
+
+window.YahooClient = YahooClient;

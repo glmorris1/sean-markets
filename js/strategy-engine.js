@@ -295,3 +295,5 @@ const StrategyEngine = (() => {
 
   return { STRATEGIES, runBacktest };
 })();
+
+window.StrategyEngine = StrategyEngine;

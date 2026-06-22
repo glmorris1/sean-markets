@@ -378,3 +378,5 @@ const StrategyTester = (() => {
 
   return { init, update, run, onResize, selectTab };
 })();
+
+window.StrategyTester = StrategyTester;

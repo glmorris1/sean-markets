@@ -231,3 +231,5 @@ const DataService = (() => {
     candleEpoch
   };
 })();
+
+window.DataService = DataService;

@@ -15,6 +15,7 @@ const state = {
   range: { from: "", to: "" },
   backtestStart: null,
   suppressAutoBacktest: false,
+  strategyReady: false,
   loading: false
 };
 
@@ -139,6 +140,8 @@ function applyFilteredCandles() {
 }
 
 function renderSeries() {
+  if (!candleSeries || !volumeSeries || !state.candles.length) return;
+
   const closes = state.candles.map((c) => c.close);
   const ma20 = movingAverage(closes, 20);
   const ema50 = movingAverage(closes, 50);
@@ -173,7 +176,7 @@ function renderSeries() {
   drawSpark();
   renderWatchlist();
   renderScreener();
-  if (window.StrategyTester && !state.suppressAutoBacktest) StrategyTester.update();
+  if (state.strategyReady && !state.suppressAutoBacktest) StrategyTester.update();
 }
 
 async function loadMarketData() {
@@ -342,8 +345,8 @@ function showStrategyTester() {
   document.querySelectorAll(".panel-content").forEach((el) => {
     el.classList.toggle("active", el.dataset.panel === "tester");
   });
-  if (window.StrategyTester?.selectTab) StrategyTester.selectTab("overview");
-  if (window.StrategyTester?.onResize) StrategyTester.onResize();
+  StrategyTester?.selectTab?.("overview");
+  StrategyTester?.onResize?.();
 }
 
 function updateBacktestStartLabel() {
@@ -456,8 +459,9 @@ function executeBacktest(triggerBtn = null, { random = false, keepRange = false 
     return false;
   }
 
-  if (!window.StrategyTester?.run) {
-    setStatus("Strategy tester is still loading — try again in a moment.", true);
+  if (!state.strategyReady) initStrategyTester();
+  if (!state.strategyReady || typeof StrategyTester?.run !== "function") {
+    setStatus("Strategy tester not ready — wait for data to load, then try again.", true);
     return false;
   }
 
@@ -503,7 +507,7 @@ function bindEvents() {
       document.querySelectorAll(".panel-content").forEach((el) => {
         el.classList.toggle("active", el.dataset.panel === panel);
       });
-      if (window.StrategyTester) StrategyTester.onResize?.();
+      StrategyTester?.onResize?.();
     });
   });
 
@@ -514,7 +518,7 @@ function bindEvents() {
     }
     const tabBtn = e.target.closest("[data-st-tab]");
     if (!tabBtn) return;
-    if (window.StrategyTester?.selectTab) StrategyTester.selectTab(tabBtn.dataset.stTab);
+    StrategyTester?.selectTab?.(tabBtn.dataset.stTab);
   });
 
   document.getElementById("headerRunBacktest")?.addEventListener("click", (e) => {
@@ -599,6 +603,7 @@ function bindEvents() {
   document.getElementById("themeBtn").addEventListener("click", () => {
     const app = document.querySelector(".app");
     app.dataset.theme = app.dataset.theme === "dark" ? "light" : "dark";
+    if (!priceChart || !volumeChart) return;
     const theme = chartTheme();
     priceChart.applyOptions(theme);
     volumeChart.applyOptions(theme);
@@ -620,7 +625,7 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     resizeCharts();
     drawSpark();
-    if (window.StrategyTester) StrategyTester.onResize();
+    StrategyTester?.onResize?.();
   });
 }
 
@@ -649,8 +654,24 @@ function readSymbolFromQuery() {
   }
 }
 
+function initStrategyTester() {
+  if (state.strategyReady || typeof StrategyTester === "undefined" || typeof StrategyEngine === "undefined") {
+    return;
+  }
+  StrategyTester.init({
+    getCandles: () => state.candles,
+    getSymbol: () => state.active?.symbol || "",
+    getBacktestStart: () => state.backtestStart,
+    getMinBars: minBacktestBars,
+    setMarkers: safeSetMarkers,
+    formatMoney: money
+  });
+  state.strategyReady = true;
+}
+
 async function bootstrap() {
   bindEvents();
+  initStrategyTester();
 
   try {
     if (window.lucide) window.lucide.createIcons();
@@ -670,17 +691,9 @@ async function bootstrap() {
 
     try {
       initCharts();
-      if (window.StrategyTester) {
-        StrategyTester.init({
-          getCandles: () => state.candles,
-          getSymbol: () => state.active?.symbol || "",
-          getBacktestStart: () => state.backtestStart,
-          getMinBars: minBacktestBars,
-          setMarkers: safeSetMarkers,
-          formatMoney: money
-        });
-      }
+      initStrategyTester();
       await loadMarketData();
+      resizeCharts();
       requestAnimationFrame(resizeCharts);
     } catch (error) {
       setStatus(error.message || "Chart failed to initialize.", true);
