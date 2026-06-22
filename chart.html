@@ -12,6 +12,8 @@
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
     <script src="js/yahoo-client.js" defer></script>
     <script src="js/data-service.js" defer></script>
+    <script src="js/strategy-engine.js" defer></script>
+    <script src="js/strategy-tester.js" defer></script>
     <script src="js/chart.js" defer></script>
   </head>
   <body>
@@ -107,18 +109,100 @@
           <div id="chartContainer" class="chart-container"></div>
           <div id="volumeContainer" class="volume-container"></div>
 
-          <section class="bottom-panel">
+          <section class="bottom-panel" id="bottomPanel">
             <div class="bottom-tabs">
-              <button class="active" type="button">Stock Screener</button>
-              <button type="button">Pine Editor</button>
-              <button type="button">Strategy Tester</button>
-              <button type="button">Trading Panel</button>
+              <button type="button" data-panel="screener">Stock Screener</button>
+              <button type="button" data-panel="pine">Pine Editor</button>
+              <button class="active" type="button" data-panel="tester">Strategy Tester</button>
+              <button type="button" data-panel="trading">Trading Panel</button>
             </div>
-            <div class="screener-table">
-              <span>Symbol</span><span>Last</span><span>Chg%</span><span>Volume</span><span>Signal</span>
-              <strong>AAPL</strong><strong>201.22</strong><strong class="positive">+0.74</strong><strong>48.1M</strong><strong>MA cross</strong>
-              <strong>NVDA</strong><strong>168.44</strong><strong class="negative">-1.21</strong><strong>62.8M</strong><strong>Pullback</strong>
-              <strong>TSLA</strong><strong>322.16</strong><strong class="positive">+1.88</strong><strong>94.3M</strong><strong>Breakout</strong>
+
+            <div class="panel-content" data-panel="screener">
+              <div class="screener-table" id="screenerTable">
+                <span>Symbol</span><span>Last</span><span>Chg%</span><span>Volume</span><span>Signal</span>
+              </div>
+            </div>
+
+            <div class="panel-content" data-panel="pine">
+              <div class="panel-placeholder">
+                <p>Pine Script editor — connect a custom strategy here.</p>
+              </div>
+            </div>
+
+            <div class="panel-content active" data-panel="tester" id="strategyTester">
+              <div class="st-toolbar">
+                <select id="strategySelect" aria-label="Strategy"></select>
+                <button class="st-run-btn" type="button" id="runBacktest">Run backtest</button>
+                <span class="st-status" id="stStatus">Select a range and strategy to begin.</span>
+                <span class="st-range" id="stRangeLabel"></span>
+              </div>
+              <div class="st-tabs">
+                <button class="active" type="button" data-st-tab="overview">Overview</button>
+                <button type="button" data-st-tab="performance">Performance</button>
+                <button type="button" data-st-tab="trades">List of Trades</button>
+                <button type="button" data-st-tab="properties">Properties</button>
+              </div>
+              <div class="st-panes">
+                <div class="st-pane active" data-st-pane="overview">
+                  <div class="st-overview-grid">
+                    <div class="st-metrics" id="stMetricsOverview"></div>
+                    <div class="st-equity-wrap">
+                      <canvas id="equityCurve" aria-label="Equity curve"></canvas>
+                    </div>
+                  </div>
+                </div>
+                <div class="st-pane" data-st-pane="performance">
+                  <div class="st-metrics st-metrics-wide" id="stMetricsPerf"></div>
+                </div>
+                <div class="st-pane" data-st-pane="trades">
+                  <div class="st-trades-scroll">
+                    <table class="st-trades-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Entry</th>
+                          <th>Exit</th>
+                          <th>Signal</th>
+                          <th>Entry $</th>
+                          <th>Exit $</th>
+                          <th>Qty</th>
+                          <th>P&amp;L</th>
+                          <th>P&amp;L %</th>
+                        </tr>
+                      </thead>
+                      <tbody id="stTradesBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="st-pane" data-st-pane="properties">
+                  <div class="st-properties">
+                    <fieldset>
+                      <legend>Backtest settings</legend>
+                      <label><span>Initial capital</span><input id="stInitialCapital" type="number" value="10000" min="100" step="100" /></label>
+                      <label><span>Commission / trade</span><input id="stCommission" type="number" value="0" min="0" step="0.01" /></label>
+                      <label><span>Slippage %</span><input id="stSlippage" type="number" value="0.05" min="0" step="0.01" /></label>
+                      <label><span>Position sizing</span>
+                        <select id="stQtyMode">
+                          <option value="equity" selected>% of equity</option>
+                          <option value="fixed">Fixed shares</option>
+                        </select>
+                      </label>
+                      <label><span>Fixed qty</span><input id="stFixedQty" type="number" value="10" min="1" step="1" /></label>
+                      <label><span>Equity %</span><input id="stEquityPct" type="number" value="95" min="1" max="100" step="1" /></label>
+                    </fieldset>
+                    <fieldset>
+                      <legend>Strategy inputs</legend>
+                      <div class="st-param-grid" id="strategyParams"></div>
+                    </fieldset>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-content" data-panel="trading">
+              <div class="panel-placeholder">
+                <p>Paper trading panel — use the order form on the right.</p>
+              </div>
             </div>
           </section>
         </section>

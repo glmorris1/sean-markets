@@ -240,7 +240,7 @@ button {
 .chart-area {
   min-height: 0;
   display: grid;
-  grid-template-rows: 64px auto auto 1fr 100px 150px;
+  grid-template-rows: 64px auto auto 1fr 100px 300px;
   background: var(--bg);
 }
 
@@ -359,6 +359,29 @@ button {
   border-top: 1px solid var(--line);
   background: var(--panel);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-content {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-content.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-placeholder {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .bottom-tabs {
@@ -395,6 +418,225 @@ button {
 }
 
 .screener-table span { color: var(--muted); font-weight: 600; }
+
+/* Strategy Tester */
+#strategyTester { min-height: 0; }
+
+.st-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.st-toolbar select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.st-run-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.st-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.st-range {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.st-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.st-tabs button {
+  height: 32px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.st-tabs button.active {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+.st-panes {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.st-pane {
+  display: none;
+  height: 100%;
+  overflow: hidden;
+}
+
+.st-pane.active {
+  display: block;
+}
+
+.st-overview-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.st-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  align-content: start;
+}
+
+.st-metrics-wide {
+  grid-template-columns: repeat(4, 1fr);
+  border-right: 0;
+  max-width: 900px;
+}
+
+.st-metric {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.st-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.st-metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.st-equity-wrap {
+  min-height: 0;
+  padding: 8px 10px 10px 4px;
+}
+
+.st-equity-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  min-height: 160px;
+}
+
+.st-trades-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.st-trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.st-trades-table th,
+.st-trades-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.st-trades-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.st-trades-table td.st-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px;
+}
+
+.st-properties {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  overflow: auto;
+  height: 100%;
+}
+
+.st-properties fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0;
+  min-width: 220px;
+}
+
+.st-properties legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.st-properties label,
+.st-param-grid label {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.st-properties input,
+.st-properties select,
+.st-param-grid input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.st-param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
 
 .mini-spark {
   height: 110px;

@@ -156,6 +156,8 @@ function renderSeries() {
   updateQuoteUI();
   drawSpark();
   renderWatchlist();
+  renderScreener();
+  if (window.StrategyTester) StrategyTester.update();
 }
 
 async function loadMarketData() {
@@ -224,6 +226,23 @@ function syncWatchlistQuote(symbol, latest) {
   market.price = latest.close;
   const { pct } = DataService.dailyChange(state.rawCandles);
   market.change = Number(pct.toFixed(2));
+}
+
+function renderScreener() {
+  const table = document.getElementById("screenerTable");
+  if (!table) return;
+  const signals = ["MA cross", "Pullback", "Breakout", "RSI OS", "EMA cross"];
+  const rows = MARKETS.slice(0, 8).map((m, i) => `
+    <strong>${m.symbol}</strong>
+    <strong>${money(m.price)}</strong>
+    <strong class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</strong>
+    <strong>${m.volume || "—"}</strong>
+    <strong>${signals[i % signals.length]}</strong>
+  `).join("");
+  table.innerHTML = `
+    <span>Symbol</span><span>Last</span><span>Chg%</span><span>Volume</span><span>Signal</span>
+    ${rows}
+  `;
 }
 
 function renderWatchlist(filter = "") {
@@ -362,6 +381,7 @@ function bindEvents() {
     priceChart.applyOptions({ width: priceEl.clientWidth, height: priceEl.clientHeight });
     volumeChart.applyOptions({ width: volEl.clientWidth, height: volEl.clientHeight });
     drawSpark();
+    if (window.StrategyTester) StrategyTester.onResize();
   });
 }
 
@@ -390,5 +410,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   readSymbolFromQuery();
   initCharts();
   bindEvents();
+
+  if (window.StrategyTester) {
+    StrategyTester.init({
+      getCandles: () => state.candles,
+      getSymbol: () => state.active?.symbol || "",
+      setMarkers: (markers) => candleSeries.setMarkers(markers),
+      formatMoney: money
+    });
+    StrategyTester.selectPanel("tester");
+  }
+
   await loadMarketData();
 });
