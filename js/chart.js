@@ -19,14 +19,7 @@ const state = {
   loading: false
 };
 
-let priceChart = null;
-let volumeChart = null;
-let candleSeries = null;
-let lineSeries = null;
-let areaSeries = null;
-let volumeSeries = null;
-let ma20Series = null;
-let ema50Series = null;
+let chartReady = false;
 
 function money(value) {
   const num = Number(value);
@@ -44,83 +37,21 @@ function movingAverage(values, period) {
   });
 }
 
-function chartTheme() {
-  const light = document.querySelector(".app").dataset.theme === "light";
-  return {
-    layout: {
-      background: { color: light ? "#ffffff" : "#131722" },
-      textColor: light ? "#131722" : "#d1d4dc"
-    },
-    grid: {
-      vertLines: { color: light ? "#e0e3eb" : "#363a45" },
-      horzLines: { color: light ? "#e0e3eb" : "#363a45" }
-    },
-    rightPriceScale: { borderColor: light ? "#d1d4dc" : "#363a45" },
-    timeScale: { borderColor: light ? "#d1d4dc" : "#363a45" }
-  };
-}
-
 function initCharts() {
-  if (!window.LightweightCharts) {
-    throw new Error("Chart library failed to load. Check your network or ad blocker.");
+  if (typeof YahooChart === "undefined") {
+    throw new Error("Yahoo chart module failed to load.");
   }
-
-  const priceEl = document.getElementById("chartContainer");
-  const volEl = document.getElementById("volumeContainer");
-  const theme = chartTheme();
-  const priceHeight = Math.max(priceEl.clientHeight, 200);
-  const volHeight = Math.max(volEl.clientHeight, 80);
-
-  priceChart = LightweightCharts.createChart(priceEl, {
-    ...theme,
-    width: Math.max(priceEl.clientWidth, 100),
-    height: priceHeight,
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
-  });
-
-  volumeChart = LightweightCharts.createChart(volEl, {
-    ...theme,
-    width: Math.max(volEl.clientWidth, 100),
-    height: volHeight,
-    rightPriceScale: { scaleMargins: { top: 0.8, bottom: 0 } },
-    timeScale: { visible: false }
-  });
-
-  candleSeries = priceChart.addCandlestickSeries({
-    upColor: "#26a69a",
-    downColor: "#ef5350",
-    borderVisible: false,
-    wickUpColor: "#26a69a",
-    wickDownColor: "#ef5350"
-  });
-
-  lineSeries = priceChart.addLineSeries({ color: "#2962ff", lineWidth: 2, visible: false });
-  areaSeries = priceChart.addAreaSeries({
-    lineColor: "#2962ff",
-    topColor: "rgba(41,98,255,0.35)",
-    bottomColor: "rgba(41,98,255,0)",
-    visible: false
-  });
-
-  ma20Series = priceChart.addLineSeries({ color: "#f5c85c", lineWidth: 1 });
-  ema50Series = priceChart.addLineSeries({ color: "#2962ff", lineWidth: 1 });
-
-  volumeSeries = volumeChart.addHistogramSeries({
-    color: "#26a69a",
-    priceFormat: { type: "volume" },
-    priceScaleId: ""
-  });
-
-  priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-    if (range) volumeChart.timeScale().setVisibleLogicalRange(range);
-  });
+  YahooChart.init(
+    document.getElementById("chartContainer"),
+    document.getElementById("volumeContainer")
+  );
+  YahooChart.setTheme(document.querySelector(".app")?.dataset.theme || "dark");
+  chartReady = true;
 }
 
 function applyChartType() {
-  const showCandles = state.chartType === "candles";
-  candleSeries.applyOptions({ visible: showCandles });
-  lineSeries.applyOptions({ visible: state.chartType === "line" });
-  areaSeries.applyOptions({ visible: state.chartType === "area" });
+  if (!chartReady) return;
+  YahooChart.setChartType(state.chartType);
 }
 
 function setStatus(message, isError = false) {
@@ -140,37 +71,28 @@ function applyFilteredCandles() {
 }
 
 function renderSeries() {
-  if (!candleSeries || !volumeSeries || !state.candles.length) return;
+  if (!chartReady || !state.candles.length) return;
 
   const closes = state.candles.map((c) => c.close);
   const ma20 = movingAverage(closes, 20);
   const ema50 = movingAverage(closes, 50);
 
-  candleSeries.setData(state.candles);
-  lineSeries.setData(state.candles.map((c) => ({ time: c.time, value: c.close })));
-  areaSeries.setData(state.candles.map((c) => ({ time: c.time, value: c.close })));
-  volumeSeries.setData(state.candles.map((c) => ({
-    time: c.time,
-    value: c.volume,
-    color: c.close >= c.open ? "rgba(38,166,154,0.5)" : "rgba(239,83,80,0.5)"
-  })));
+  YahooChart.setIndicators(state.indicators);
+  YahooChart.setData(state.candles, { ma20, ema50 });
+  applyChartType();
 
   if (state.indicators) {
-    ma20Series.setData(state.candles.map((c, i) => ma20[i] == null ? null : { time: c.time, value: ma20[i] }).filter(Boolean));
-    ema50Series.setData(state.candles.map((c, i) => ema50[i] == null ? null : { time: c.time, value: ema50[i] }).filter(Boolean));
     document.getElementById("ma20Val").textContent = money(ma20.at(-1) || 0);
     document.getElementById("ema50Val").textContent = money(ema50.at(-1) || 0);
   } else {
-    ma20Series.setData([]);
-    ema50Series.setData([]);
+    document.getElementById("ma20Val").textContent = "—";
+    document.getElementById("ema50Val").textContent = "—";
   }
 
-  applyChartType();
   if (state.backtestStart != null) {
     scrollChartToTime(state.backtestStart);
   } else {
-    priceChart.timeScale().fitContent();
-    volumeChart.timeScale().fitContent();
+    YahooChart.fitContent();
   }
   updateQuoteUI();
   drawSpark();
@@ -309,12 +231,8 @@ function drawSpark() {
 }
 
 function safeSetMarkers(markers) {
-  if (!candleSeries) return;
-  try {
-    candleSeries.setMarkers(markers || []);
-  } catch (error) {
-    console.warn("Chart markers skipped:", error);
-  }
+  if (!chartReady) return;
+  YahooChart.setMarkers(markers || []);
 }
 
 function candleToDateValue(time) {
@@ -385,15 +303,8 @@ function setBacktestRange(from, to, startTime = null) {
 }
 
 function scrollChartToTime(time) {
-  if (!priceChart || !state.candles.length) return;
-  const anchor = DataService.findCandleIndex(state.candles, time);
-  const span = Math.min(160, state.candles.length - anchor);
-  const range = {
-    from: Math.max(0, anchor - 3),
-    to: Math.min(state.candles.length - 1, anchor + Math.max(span, 40))
-  };
-  priceChart.timeScale().setVisibleLogicalRange(range);
-  volumeChart.timeScale().setVisibleLogicalRange(range);
+  if (!chartReady || !state.candles.length) return;
+  YahooChart.scrollToTime(time);
 }
 
 function resolveBacktestStartIndex(random = false) {
@@ -603,10 +514,7 @@ function bindEvents() {
   document.getElementById("themeBtn").addEventListener("click", () => {
     const app = document.querySelector(".app");
     app.dataset.theme = app.dataset.theme === "dark" ? "light" : "dark";
-    if (!priceChart || !volumeChart) return;
-    const theme = chartTheme();
-    priceChart.applyOptions(theme);
-    volumeChart.applyOptions(theme);
+    if (chartReady) YahooChart.setTheme(app.dataset.theme);
   });
 
   document.querySelectorAll(".tool").forEach((tool) => {
@@ -630,17 +538,8 @@ function bindEvents() {
 }
 
 function resizeCharts() {
-  if (!priceChart || !volumeChart) return;
-  const priceEl = document.getElementById("chartContainer");
-  const volEl = document.getElementById("volumeContainer");
-  priceChart.applyOptions({
-    width: Math.max(priceEl.clientWidth, 100),
-    height: Math.max(priceEl.clientHeight, 200)
-  });
-  volumeChart.applyOptions({
-    width: Math.max(volEl.clientWidth, 100),
-    height: Math.max(volEl.clientHeight, 80)
-  });
+  if (!chartReady) return;
+  YahooChart.resize();
 }
 
 function readSymbolFromQuery() {
