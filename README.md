@@ -4,7 +4,7 @@ Sean is a static clone of [TradingView](https://www.tradingview.com/) — rebran
 
 ## Data
 
-Historical OHLCV bars are downloaded from **Yahoo Finance** and stored in `data/history/` as JSON. This is ideal for backtesting: the chart loads real past prices, not simulated data.
+Historical OHLCV bars come from **Yahoo Finance** (real market data, typically through the prior trading day). The chart fetches live history on load via Yahoo, with bundled JSON as fallback. A GitHub Action also refreshes the bundled files on weekdays.
 
 Supported intervals (bundled):
 

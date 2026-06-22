@@ -323,7 +323,14 @@ button {
 
 .quote { margin-left: auto; text-align: right; }
 .quote span { display: block; font-size: 24px; font-weight: 800; }
-.quote strong { font-size: 13px; }
+.quote strong { display: block; font-size: 13px; }
+.quote em {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
 
 .chart-types { margin-left: 12px; }
 

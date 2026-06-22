@@ -31,15 +31,52 @@ const DataService = (() => {
     return manifestPromise;
   }
 
-  async function loadHistory(symbol, uiInterval) {
+  async function loadBundledHistory(symbol, uiInterval) {
+    const response = await fetch(historyPath(symbol, uiInterval));
+    if (!response.ok) throw new Error(`No bundled data for ${symbol}`);
+    return response.json();
+  }
+
+  async function loadHistory(symbol, uiInterval, { preferLive = true } = {}) {
     const key = `${symbol}_${fileInterval(uiInterval)}`;
     if (cache.has(key)) return cache.get(key);
 
-    const response = await fetch(historyPath(symbol, uiInterval));
-    if (!response.ok) throw new Error(`No historical data for ${symbol}`);
-    const payload = await response.json();
-    cache.set(key, payload);
-    return payload;
+    let bundled = null;
+    try {
+      bundled = await loadBundledHistory(symbol, uiInterval);
+    } catch {
+      bundled = null;
+    }
+
+    if (preferLive && window.YahooClient) {
+      try {
+        const live = await YahooClient.fetchChart(symbol, fileInterval(uiInterval));
+        const payload = live.candles.length >= (bundled?.candles?.length || 0) * 0.9 ? live : mergePayload(live, bundled);
+        cache.set(key, payload);
+        return payload;
+      } catch (error) {
+        if (bundled) {
+          bundled.sourceNote = `Bundled fallback (${error.message})`;
+          cache.set(key, bundled);
+          return bundled;
+        }
+        throw error;
+      }
+    }
+
+    if (!bundled) throw new Error(`No historical data for ${symbol}`);
+    cache.set(key, bundled);
+    return bundled;
+  }
+
+  function mergePayload(live, bundled) {
+    if (!bundled?.candles?.length) return live;
+    const byTime = new Map(bundled.candles.map((c) => [String(c.time), c]));
+    live.candles.forEach((c) => byTime.set(String(c.time), c));
+    return {
+      ...live,
+      candles: [...byTime.values()].sort((a, b) => candleEpoch(a) - candleEpoch(b))
+    };
   }
 
   function parseBoundary(value, endOfDay = false) {
@@ -67,13 +104,12 @@ const DataService = (() => {
 
   function defaultRange(candles) {
     if (!candles.length) return { from: "", to: "" };
-    const first = candles[0].time;
     const last = candles.at(-1).time;
     const toStr = typeof last === "number"
       ? new Date(last * 1000).toISOString().slice(0, 10)
       : last;
-    const fromDate = new Date(toStr);
-    fromDate.setFullYear(fromDate.getFullYear() - 1);
+    const fromDate = new Date(`${toStr}T00:00:00Z`);
+    fromDate.setUTCFullYear(fromDate.getUTCFullYear() - 1);
     return {
       from: fromDate.toISOString().slice(0, 10),
       to: toStr
@@ -87,13 +123,30 @@ const DataService = (() => {
     return String(value);
   }
 
+  function formatAsOf(candle) {
+    if (!candle) return "";
+    if (typeof candle.time === "number") {
+      return new Date(candle.time * 1000).toISOString().slice(0, 10);
+    }
+    return candle.time;
+  }
+
+  function dailyChange(candles) {
+    if (candles.length < 2) return { change: 0, pct: 0 };
+    const last = candles.at(-1);
+    const prev = candles.at(-2);
+    const change = last.close - prev.close;
+    const pct = (change / prev.close) * 100;
+    return { change, pct };
+  }
+
   function intervalLabel(uiInterval) {
     const map = { 1: "1m*", 5: "5m*", 15: "15m*", 60: "1h", 240: "4h*", D: "1D", W: "1W" };
     return map[uiInterval] || uiInterval;
   }
 
-  function usesHourlyFallback(uiInterval) {
-    return ["1", "5", "15", "240"].includes(String(uiInterval));
+  function clearCache() {
+    cache.clear();
   }
 
   return {
@@ -102,8 +155,10 @@ const DataService = (() => {
     filterByDateRange,
     defaultRange,
     formatVolume,
+    formatAsOf,
+    dailyChange,
     intervalLabel,
-    usesHourlyFallback,
+    clearCache,
     fileInterval
   };
 })();

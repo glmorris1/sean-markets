@@ -22,9 +22,11 @@ let ma20Series = null;
 let ema50Series = null;
 
 function money(value) {
-  return value > 1000
-    ? value.toLocaleString("en-US", { maximumFractionDigits: 2 })
-    : value.toFixed(2);
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  const fixed = num.toFixed(2);
+  const [whole, fraction] = fixed.split(".");
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction}`;
 }
 
 function movingAverage(values, period) {
@@ -177,11 +179,13 @@ async function loadMarketData() {
 
     applyFilteredCandles();
 
+    const latest = state.rawCandles.at(-1);
     const fetched = new Date(payload.fetchedAt).toLocaleDateString();
-    const fallback = DataService.usesHourlyFallback(state.interval) ? " (hourly fallback)" : "";
+    const note = payload.sourceNote ? ` · ${payload.sourceNote}` : "";
     setStatus(
-      `${payload.source} · ${DataService.intervalLabel(state.interval)}${fallback} · ${state.candles.length} bars · updated ${fetched}`
+      `${payload.source} · ${DataService.intervalLabel(state.interval)} · latest ${DataService.formatAsOf(latest)} · ${state.candles.length} bars in range${note}`
     );
+    syncWatchlistQuote(state.active.symbol, latest);
   } catch (error) {
     setStatus(error.message || "Failed to load market data.", true);
   } finally {
@@ -190,26 +194,36 @@ async function loadMarketData() {
 }
 
 function updateQuoteUI() {
-  if (!state.candles.length) return;
-  const first = state.candles[0];
-  const high = Math.max(...state.candles.map((c) => c.high));
-  const low = Math.min(...state.candles.map((c) => c.low));
-  const last = state.candles.at(-1);
-  const change = ((last.close - first.open) / first.open) * 100;
+  const latest = state.rawCandles.at(-1);
+  if (!latest || !state.candles.length) return;
+
+  const rangeFirst = state.candles[0];
+  const rangeHigh = Math.max(...state.candles.map((c) => c.high));
+  const rangeLow = Math.min(...state.candles.map((c) => c.low));
+  const { pct } = DataService.dailyChange(state.rawCandles);
 
   document.getElementById("symbolTitle").textContent = state.active.symbol;
   document.getElementById("symbolSubtitle").textContent = `${state.active.name} · ${state.active.exchange}`;
   document.getElementById("detailsSymbol").textContent = state.active.symbol;
-  document.getElementById("lastPrice").textContent = money(last.close);
-  document.getElementById("lastChange").textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
-  document.getElementById("lastChange").className = change >= 0 ? "positive" : "negative";
-  document.getElementById("statOpen").textContent = money(first.open);
-  document.getElementById("statHigh").textContent = money(high);
-  document.getElementById("statLow").textContent = money(low);
-  document.getElementById("statVolume").textContent = DataService.formatVolume(last.volume);
-  document.getElementById("volVal").textContent = DataService.formatVolume(last.volume);
-  document.getElementById("limitPrice").value = last.close.toFixed(2);
+  document.getElementById("lastPrice").textContent = money(latest.close);
+  document.getElementById("lastChange").textContent = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+  document.getElementById("lastChange").className = pct >= 0 ? "positive" : "negative";
+  document.getElementById("asOfDate").textContent = `As of ${DataService.formatAsOf(latest)} · prior close`;
+  document.getElementById("statOpen").textContent = money(rangeFirst.open);
+  document.getElementById("statHigh").textContent = money(rangeHigh);
+  document.getElementById("statLow").textContent = money(rangeLow);
+  document.getElementById("statVolume").textContent = DataService.formatVolume(latest.volume);
+  document.getElementById("volVal").textContent = DataService.formatVolume(latest.volume);
+  document.getElementById("limitPrice").value = latest.close.toFixed(2);
   document.title = `Sean Chart — ${state.active.symbol}`;
+}
+
+function syncWatchlistQuote(symbol, latest) {
+  const market = MARKETS.find((m) => m.symbol === symbol);
+  if (!market || !latest) return;
+  market.price = latest.close;
+  const { pct } = DataService.dailyChange(state.rawCandles);
+  market.change = Number(pct.toFixed(2));
 }
 
 function renderWatchlist(filter = "") {
@@ -306,6 +320,12 @@ function bindEvents() {
     document.getElementById("rangeFrom").value = state.range.from;
     document.getElementById("rangeTo").value = state.range.to;
     applyFilteredCandles();
+  });
+
+  document.getElementById("refreshData").addEventListener("click", async () => {
+    DataService.clearCache();
+    state.range = { from: "", to: "" };
+    await loadMarketData();
   });
 
   document.getElementById("indicatorBtn").addEventListener("click", () => {

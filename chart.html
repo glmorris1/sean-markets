@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/chart.css" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
+    <script src="js/yahoo-client.js" defer></script>
     <script src="js/data-service.js" defer></script>
     <script src="js/chart.js" defer></script>
   </head>
@@ -72,8 +73,9 @@
               <p id="symbolSubtitle">Apple Inc. · NASDAQ</p>
             </div>
             <div class="quote">
-              <span id="lastPrice">201.22</span>
-              <strong id="lastChange" class="positive">+0.74%</strong>
+              <span id="lastPrice">—</span>
+              <strong id="lastChange">—</strong>
+              <em id="asOfDate">Loading…</em>
             </div>
             <div class="chart-types segmented" id="chartTypes">
               <button class="selected" type="button" data-type="candles">Candles</button>
@@ -94,6 +96,7 @@
               </label>
               <button class="range-btn" type="button" id="applyRange">Apply range</button>
               <button class="range-btn ghost" type="button" id="resetRange">Reset</button>
+              <button class="range-btn ghost" type="button" id="refreshData">Refresh Yahoo</button>
             </div>
           </div>
           <div class="indicator-row" id="indicatorRow">

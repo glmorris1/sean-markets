@@ -4,7 +4,7 @@
   "exchange": "NYSE Arca",
   "interval": "1h",
   "source": "Yahoo Finance",
-  "fetchedAt": "2026-06-22T00:19:33.182875+00:00",
+  "fetchedAt": "2026-06-22T00:23:35.840512+00:00",
   "candles": [
     {
       "time": 1718890200,

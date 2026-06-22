@@ -10,9 +10,11 @@ const IDEAS = [
 ];
 
 function money(value) {
-  return value >= 1000
-    ? value.toLocaleString("en-US", { maximumFractionDigits: 2 })
-    : value.toFixed(2);
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  const fixed = num.toFixed(2);
+  const [whole, fraction] = fixed.split(".");
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction}`;
 }
 
 function changeClass(change) {
