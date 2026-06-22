@@ -1,5 +1,7 @@
 let MARKETS = [];
 
+const MIN_BACKTEST_BARS = 60;
+
 const state = {
   active: null,
   chartType: "candles",
@@ -9,6 +11,7 @@ const state = {
   rawCandles: [],
   meta: null,
   range: { from: "", to: "" },
+  backtestStart: null,
   loading: false
 };
 
@@ -302,6 +305,132 @@ function safeSetMarkers(markers) {
   }
 }
 
+function candleToDateValue(time) {
+  if (typeof time === "number") return new Date(time * 1000).toISOString().slice(0, 10);
+  return String(time).slice(0, 10);
+}
+
+function formatCandleLabel(time) {
+  if (typeof time === "number") {
+    return new Date(time * 1000).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  }
+  return new Date(`${time}T12:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function showStrategyTester() {
+  document.querySelectorAll(".bottom-tabs [data-panel]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.panel === "tester");
+  });
+  document.querySelectorAll(".panel-content").forEach((el) => {
+    el.classList.toggle("active", el.dataset.panel === "tester");
+  });
+  if (window.StrategyTester?.selectTab) StrategyTester.selectTab("overview");
+  if (window.StrategyTester?.onResize) StrategyTester.onResize();
+}
+
+function updateBacktestStartLabel() {
+  const el = document.getElementById("backtestStartLabel");
+  if (!el) return;
+  if (!state.backtestStart) {
+    el.textContent = "";
+    return;
+  }
+  el.textContent = `Start: ${formatCandleLabel(state.backtestStart)}`;
+}
+
+function setBacktestRange(from, to, startTime = null) {
+  state.range = { from, to };
+  state.backtestStart = startTime;
+  document.getElementById("rangeFrom").value = from;
+  document.getElementById("rangeTo").value = to;
+  updateBacktestStartLabel();
+  applyFilteredCandles();
+}
+
+function scrollChartToTime(time) {
+  if (!priceChart || !state.candles.length) return;
+  const idx = state.candles.findIndex((c) => String(c.time) === String(time));
+  const anchor = idx >= 0 ? idx : 0;
+  const span = Math.min(120, state.candles.length - anchor);
+  const range = { from: Math.max(0, anchor - 2), to: Math.min(state.candles.length, anchor + span) };
+  priceChart.timeScale().setVisibleLogicalRange(range);
+  volumeChart.timeScale().setVisibleLogicalRange(range);
+}
+
+function flashButton(btn) {
+  if (!btn) return;
+  btn.classList.add("running");
+  btn.disabled = true;
+  window.setTimeout(() => {
+    btn.classList.remove("running");
+    btn.classList.add("success");
+    btn.disabled = false;
+    window.setTimeout(() => btn.classList.remove("success"), 700);
+  }, 250);
+}
+
+function executeBacktest(triggerBtn = null) {
+  if (!state.candles.length) {
+    setStatus("No chart data loaded yet.", true);
+    return false;
+  }
+  if (state.candles.length < MIN_BACKTEST_BARS) {
+    setStatus(`Need at least ${MIN_BACKTEST_BARS} bars in range. Widen the date range or use Random start.`, true);
+    return false;
+  }
+
+  showStrategyTester();
+
+  if (!window.StrategyTester?.run) {
+    setStatus("Strategy tester is still loading — try again in a moment.", true);
+    return false;
+  }
+
+  const ok = StrategyTester.run();
+  if (ok) {
+    flashButton(triggerBtn || document.getElementById("runBacktest") || document.getElementById("headerRunBacktest"));
+    setStatus(`Backtest complete · ${state.candles.length} bars · ${state.active.symbol}`);
+  }
+  return ok;
+}
+
+function randomBacktestStart(triggerBtn = null) {
+  if (!state.rawCandles.length) {
+    setStatus("Load data first before picking a random start.", true);
+    return;
+  }
+  if (state.rawCandles.length < MIN_BACKTEST_BARS + 10) {
+    setStatus("Not enough history for a random backtest window.", true);
+    return;
+  }
+
+  const maxStart = state.rawCandles.length - MIN_BACKTEST_BARS - 1;
+  const startIdx = Math.floor(Math.random() * (maxStart + 1));
+  const startCandle = state.rawCandles[startIdx];
+  const from = candleToDateValue(startCandle.time);
+  const to = candleToDateValue(state.rawCandles.at(-1).time);
+
+  setBacktestRange(from, to, startCandle.time);
+  scrollChartToTime(state.candles[0]?.time ?? startCandle.time);
+
+  const ok = executeBacktest(triggerBtn);
+  if (ok) {
+    setStatus(
+      `Random start ${formatCandleLabel(startCandle.time)} → ${formatCandleLabel(state.candles.at(-1).time)} · ${state.candles.length} bars`
+    );
+  }
+}
+
 function bindEvents() {
   document.querySelectorAll(".bottom-tabs [data-panel]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -317,13 +446,21 @@ function bindEvents() {
   });
 
   document.getElementById("strategyTester")?.addEventListener("click", (e) => {
-    if (e.target.closest("#runBacktest") && window.StrategyTester?.run) {
-      StrategyTester.run();
+    if (e.target.closest("#runBacktest")) {
+      executeBacktest(e.target.closest("#runBacktest"));
       return;
     }
     const tabBtn = e.target.closest("[data-st-tab]");
     if (!tabBtn) return;
     if (window.StrategyTester?.selectTab) StrategyTester.selectTab(tabBtn.dataset.stTab);
+  });
+
+  document.getElementById("headerRunBacktest")?.addEventListener("click", (e) => {
+    executeBacktest(e.currentTarget);
+  });
+
+  document.getElementById("randomStart")?.addEventListener("click", (e) => {
+    randomBacktestStart(e.currentTarget);
   });
 
   document.getElementById("watchlist").addEventListener("click", (e) => {
@@ -367,16 +504,16 @@ function bindEvents() {
   });
 
   document.getElementById("applyRange").addEventListener("click", () => {
-    state.range.from = document.getElementById("rangeFrom").value;
-    state.range.to = document.getElementById("rangeTo").value;
-    applyFilteredCandles();
+    setBacktestRange(
+      document.getElementById("rangeFrom").value,
+      document.getElementById("rangeTo").value,
+      null
+    );
   });
 
   document.getElementById("resetRange").addEventListener("click", () => {
-    state.range = DataService.defaultRange(state.rawCandles);
-    document.getElementById("rangeFrom").value = state.range.from;
-    document.getElementById("rangeTo").value = state.range.to;
-    applyFilteredCandles();
+    const range = DataService.defaultRange(state.rawCandles);
+    setBacktestRange(range.from, range.to, null);
   });
 
   document.getElementById("refreshData").addEventListener("click", async () => {
@@ -469,6 +606,7 @@ async function bootstrap() {
         StrategyTester.init({
           getCandles: () => state.candles,
           getSymbol: () => state.active?.symbol || "",
+          getBacktestStart: () => state.backtestStart,
           setMarkers: safeSetMarkers,
           formatMoney: money
         });

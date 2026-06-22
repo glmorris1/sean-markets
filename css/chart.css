@@ -312,6 +312,22 @@ button i,
   color: var(--text);
 }
 
+.range-btn.accent {
+  background: var(--green);
+  color: #041a16;
+}
+
+.range-btn.running,
+.st-run-btn.running {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.range-btn.success,
+.st-run-btn.success {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 50%, transparent);
+}
+
 .symbol-bar {
   display: flex;
   align-items: center;
@@ -480,6 +496,13 @@ button i,
 .st-status {
   color: var(--muted);
   font-size: 12px;
+}
+
+.st-start-label {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .st-range {

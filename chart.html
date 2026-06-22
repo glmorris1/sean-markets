@@ -97,6 +97,8 @@
                 <input id="rangeTo" type="date" />
               </label>
               <button class="range-btn" type="button" id="applyRange">Apply range</button>
+              <button class="range-btn accent" type="button" id="headerRunBacktest">Run backtest</button>
+              <button class="range-btn ghost" type="button" id="randomStart">Random start</button>
               <button class="range-btn ghost" type="button" id="resetRange">Reset</button>
               <button class="range-btn ghost" type="button" id="refreshData">Refresh Yahoo</button>
             </div>
@@ -133,6 +135,7 @@
               <div class="st-toolbar">
                 <select id="strategySelect" aria-label="Strategy"></select>
                 <button class="st-run-btn" type="button" id="runBacktest">Run backtest</button>
+                <span class="st-start-label" id="backtestStartLabel"></span>
                 <span class="st-status" id="stStatus">Select a range and strategy to begin.</span>
                 <span class="st-range" id="stRangeLabel"></span>
               </div>

@@ -83,8 +83,6 @@ const StrategyTester = (() => {
       run();
     });
 
-    document.getElementById("runBacktest")?.addEventListener("click", run);
-
     ["stInitialCapital", "stCommission", "stSlippage", "stQtyMode", "stFixedQty", "stEquityPct"].forEach(
       (id) => {
         document.getElementById(id)?.addEventListener("change", run);
@@ -109,13 +107,32 @@ const StrategyTester = (() => {
     const candles = hooks.getCandles?.() || [];
     if (candles.length < 10) {
       renderEmpty("Not enough bars in range to backtest.");
-      return;
+      return false;
     }
 
-    const strategyId = document.getElementById("strategySelect")?.value || "ma_cross";
-    result = StrategyEngine.runBacktest(candles, strategyId, readParams(), readSettings());
-    hooks.setMarkers?.(result.markers);
-    render();
+    try {
+      const strategyId = document.getElementById("strategySelect")?.value || "ma_cross";
+      result = StrategyEngine.runBacktest(candles, strategyId, readParams(), readSettings());
+      const markers = [...(result.markers || [])];
+      const start = hooks.getBacktestStart?.();
+      if (start != null) {
+        markers.unshift({
+          time: start,
+          position: "aboveBar",
+          color: "#f5c85c",
+          shape: "circle",
+          text: "Start"
+        });
+      }
+      hooks.setMarkers?.(markers);
+      render();
+      if (activeTab === "overview") drawEquityCurve();
+      return true;
+    } catch (error) {
+      renderEmpty(error.message || "Backtest failed.");
+      console.error(error);
+      return false;
+    }
   }
 
   function update() {
