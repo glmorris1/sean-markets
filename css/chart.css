@@ -35,6 +35,12 @@ button {
   cursor: pointer;
 }
 
+button svg,
+button i,
+.icon-btn svg {
+  pointer-events: none;
+}
+
 .app {
   width: 100vw;
   height: 100vh;
@@ -60,6 +66,8 @@ button {
   padding: 0 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 20;
 }
 
 .brand {
@@ -253,6 +261,8 @@ button {
   border-bottom: 1px solid var(--line);
   background: var(--panel);
   font-size: 12px;
+  position: relative;
+  z-index: 12;
 }
 
 #dataStatus {
@@ -308,6 +318,8 @@ button {
   gap: 20px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 12;
 }
 
 .symbol-bar h1 {
@@ -349,8 +361,20 @@ button {
   margin-left: 4px;
 }
 
-.chart-container { min-height: 0; }
-.volume-container { height: 100px; border-top: 1px solid var(--line); }
+.chart-container {
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.volume-container {
+  height: 100px;
+  border-top: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
 
 .positive { color: var(--green); }
 .negative { color: var(--red); }
@@ -362,6 +386,8 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  z-index: 15;
 }
 
 .panel-content {

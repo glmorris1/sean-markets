@@ -85,14 +85,6 @@ const StrategyTester = (() => {
 
     document.getElementById("runBacktest")?.addEventListener("click", run);
 
-    document.querySelectorAll("[data-st-tab]").forEach((btn) => {
-      btn.addEventListener("click", () => selectTab(btn.dataset.stTab));
-    });
-
-    document.querySelectorAll(".bottom-tabs [data-panel]").forEach((btn) => {
-      btn.addEventListener("click", () => selectPanel(btn.dataset.panel));
-    });
-
     ["stInitialCapital", "stCommission", "stSlippage", "stQtyMode", "stFixedQty", "stEquityPct"].forEach(
       (id) => {
         document.getElementById(id)?.addEventListener("change", run);
@@ -100,15 +92,6 @@ const StrategyTester = (() => {
     );
 
     document.getElementById("strategyParams")?.addEventListener("change", run);
-  }
-
-  function selectPanel(panel) {
-    document.querySelectorAll(".bottom-tabs [data-panel]").forEach((b) => {
-      b.classList.toggle("active", b.dataset.panel === panel);
-    });
-    document.querySelectorAll(".panel-content").forEach((el) => {
-      el.classList.toggle("active", el.dataset.panel === panel);
-    });
   }
 
   function selectTab(tab) {
@@ -344,5 +327,5 @@ const StrategyTester = (() => {
     if (activeTab === "overview") drawEquityCurve();
   }
 
-  return { init, update, run, onResize, selectPanel };
+  return { init, update, run, onResize, selectTab };
 })();

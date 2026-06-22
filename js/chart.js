@@ -54,21 +54,27 @@ function chartTheme() {
 }
 
 function initCharts() {
+  if (!window.LightweightCharts) {
+    throw new Error("Chart library failed to load. Check your network or ad blocker.");
+  }
+
   const priceEl = document.getElementById("chartContainer");
   const volEl = document.getElementById("volumeContainer");
   const theme = chartTheme();
+  const priceHeight = Math.max(priceEl.clientHeight, 200);
+  const volHeight = Math.max(volEl.clientHeight, 80);
 
   priceChart = LightweightCharts.createChart(priceEl, {
     ...theme,
-    width: priceEl.clientWidth,
-    height: priceEl.clientHeight,
+    width: Math.max(priceEl.clientWidth, 100),
+    height: priceHeight,
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
   });
 
   volumeChart = LightweightCharts.createChart(volEl, {
     ...theme,
-    width: volEl.clientWidth,
-    height: volEl.clientHeight,
+    width: Math.max(volEl.clientWidth, 100),
+    height: volHeight,
     rightPriceScale: { scaleMargins: { top: 0.8, bottom: 0 } },
     timeScale: { visible: false }
   });
@@ -287,7 +293,39 @@ function drawSpark() {
   ctx.stroke();
 }
 
+function safeSetMarkers(markers) {
+  if (!candleSeries) return;
+  try {
+    candleSeries.setMarkers(markers || []);
+  } catch (error) {
+    console.warn("Chart markers skipped:", error);
+  }
+}
+
 function bindEvents() {
+  document.querySelectorAll(".bottom-tabs [data-panel]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = btn.dataset.panel;
+      document.querySelectorAll(".bottom-tabs [data-panel]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.panel === panel);
+      });
+      document.querySelectorAll(".panel-content").forEach((el) => {
+        el.classList.toggle("active", el.dataset.panel === panel);
+      });
+      if (window.StrategyTester) StrategyTester.onResize?.();
+    });
+  });
+
+  document.getElementById("strategyTester")?.addEventListener("click", (e) => {
+    if (e.target.closest("#runBacktest") && window.StrategyTester?.run) {
+      StrategyTester.run();
+      return;
+    }
+    const tabBtn = e.target.closest("[data-st-tab]");
+    if (!tabBtn) return;
+    if (window.StrategyTester?.selectTab) StrategyTester.selectTab(tabBtn.dataset.stTab);
+  });
+
   document.getElementById("watchlist").addEventListener("click", (e) => {
     const row = e.target.closest(".watch-row");
     if (!row) return;
@@ -376,12 +414,23 @@ function bindEvents() {
   });
 
   window.addEventListener("resize", () => {
-    const priceEl = document.getElementById("chartContainer");
-    const volEl = document.getElementById("volumeContainer");
-    priceChart.applyOptions({ width: priceEl.clientWidth, height: priceEl.clientHeight });
-    volumeChart.applyOptions({ width: volEl.clientWidth, height: volEl.clientHeight });
+    resizeCharts();
     drawSpark();
     if (window.StrategyTester) StrategyTester.onResize();
+  });
+}
+
+function resizeCharts() {
+  if (!priceChart || !volumeChart) return;
+  const priceEl = document.getElementById("chartContainer");
+  const volEl = document.getElementById("volumeContainer");
+  priceChart.applyOptions({
+    width: Math.max(priceEl.clientWidth, 100),
+    height: Math.max(priceEl.clientHeight, 200)
+  });
+  volumeChart.applyOptions({
+    width: Math.max(volEl.clientWidth, 100),
+    height: Math.max(volEl.clientHeight, 80)
   });
 }
 
@@ -396,30 +445,49 @@ function readSymbolFromQuery() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  if (window.lucide) window.lucide.createIcons();
-
-  const manifest = await DataService.loadManifest();
-  MARKETS = manifest.symbols;
-  state.active = MARKETS[0];
-
-  document.querySelectorAll("#intervals button").forEach((b) => {
-    b.classList.toggle("selected", b.dataset.interval === state.interval);
-  });
-
-  readSymbolFromQuery();
-  initCharts();
+async function bootstrap() {
   bindEvents();
 
-  if (window.StrategyTester) {
-    StrategyTester.init({
-      getCandles: () => state.candles,
-      getSymbol: () => state.active?.symbol || "",
-      setMarkers: (markers) => candleSeries.setMarkers(markers),
-      formatMoney: money
-    });
-    StrategyTester.selectPanel("tester");
-  }
+  try {
+    if (window.lucide) window.lucide.createIcons();
 
-  await loadMarketData();
+    const manifest = await DataService.loadManifest();
+    MARKETS = manifest.symbols || [];
+    if (!MARKETS.length) throw new Error("No symbols in manifest.");
+    state.active = MARKETS[0];
+
+    document.querySelectorAll("#intervals button").forEach((b) => {
+      b.classList.toggle("selected", b.dataset.interval === state.interval);
+    });
+
+    readSymbolFromQuery();
+    renderWatchlist();
+
+    try {
+      initCharts();
+      if (window.StrategyTester) {
+        StrategyTester.init({
+          getCandles: () => state.candles,
+          getSymbol: () => state.active?.symbol || "",
+          setMarkers: safeSetMarkers,
+          formatMoney: money
+        });
+      }
+      await loadMarketData();
+      requestAnimationFrame(resizeCharts);
+    } catch (error) {
+      setStatus(error.message || "Chart failed to initialize.", true);
+      console.error(error);
+    }
+  } catch (error) {
+    setStatus(error.message || "Failed to start chart workspace.", true);
+    console.error(error);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", bootstrap);
+window.addEventListener("error", (event) => {
+  if (!document.getElementById("dataStatus")?.classList.contains("error")) {
+    setStatus(event.message || "Unexpected error — try refreshing.", true);
+  }
 });
