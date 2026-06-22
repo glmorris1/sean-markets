@@ -103,10 +103,30 @@ const StrategyTester = (() => {
     if (tab === "overview") drawEquityCurve();
   }
 
-  function run() {
+  function minBars() {
+    return hooks.getMinBars?.() || 30;
+  }
+
+  function normalizeMarkerTime(time, candles) {
+    if (!candles.length) return time;
+    const idx = candles.findIndex((c) => String(c.time) === String(time));
+    if (idx >= 0) return candles[idx].time;
+    return candles[0].time;
+  }
+
+  function sortMarkers(markers) {
+    return [...markers].sort((a, b) => {
+      const ta = typeof a.time === "number" ? a.time : Date.parse(`${a.time}T12:00:00Z`) / 1000;
+      const tb = typeof b.time === "number" ? b.time : Date.parse(`${b.time}T12:00:00Z`) / 1000;
+      return ta - tb;
+    });
+  }
+
+  function run({ force = false } = {}) {
     const candles = hooks.getCandles?.() || [];
-    if (candles.length < 10) {
-      renderEmpty("Not enough bars in range to backtest.");
+    const needed = minBars();
+    if (candles.length < needed) {
+      renderEmpty(`Need at least ${needed} bars in range to backtest.`);
       return false;
     }
 
@@ -117,14 +137,14 @@ const StrategyTester = (() => {
       const start = hooks.getBacktestStart?.();
       if (start != null) {
         markers.unshift({
-          time: start,
+          time: normalizeMarkerTime(start, candles),
           position: "aboveBar",
           color: "#f5c85c",
           shape: "circle",
-          text: "Start"
+          text: "BT Start"
         });
       }
-      hooks.setMarkers?.(markers);
+      hooks.setMarkers?.(sortMarkers(markers));
       render();
       if (activeTab === "overview") drawEquityCurve();
       return true;
@@ -144,12 +164,24 @@ const StrategyTester = (() => {
       const to = formatDate(candles.at(-1).time);
       label.textContent = `${symbol} · ${from} — ${to} · ${candles.length} bars`;
     }
-    run();
+    if (candles.length >= minBars()) run();
   }
 
   function formatDate(time) {
-    if (typeof time === "number") return new Date(time * 1000).toLocaleDateString();
-    return new Date(`${time}T12:00:00`).toLocaleDateString();
+    if (typeof time === "number") {
+      return new Date(time * 1000).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+    return new Date(`${time}T12:00:00`).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
   }
 
   function fmtMoney(v, signed = false) {

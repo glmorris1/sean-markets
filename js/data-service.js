@@ -94,7 +94,9 @@ const DataService = (() => {
     if (!value) return null;
     if (typeof value === "number") return value;
     const hasTime = String(value).includes("T");
-    const stamp = Date.parse(hasTime ? value : `${value}T${endOfDay ? "23:59:59" : "00:00:00"}Z`);
+    const stamp = hasTime
+      ? Date.parse(value)
+      : Date.parse(`${value}T${endOfDay ? "23:59:59" : "00:00:00"}Z`);
     return Number.isNaN(stamp) ? null : Math.floor(stamp / 1000);
   }
 
@@ -119,11 +121,20 @@ const DataService = (() => {
       if (isIntraday(uiInterval)) {
         const d = new Date(time * 1000);
         const pad = (n) => String(n).padStart(2, "0");
-        return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
       return new Date(time * 1000).toISOString().slice(0, 10);
     }
     return time;
+  }
+
+  function findCandleIndex(candles, time) {
+    const target = String(time);
+    let idx = candles.findIndex((c) => String(c.time) === target);
+    if (idx >= 0) return idx;
+    const epoch = typeof time === "number" ? time : Math.floor(Date.parse(`${time}T12:00:00`) / 1000);
+    idx = candles.findIndex((c) => candleEpoch(c) >= epoch);
+    return idx >= 0 ? idx : candles.length - 1;
   }
 
   function defaultRange(candles, uiInterval = "D") {
@@ -215,6 +226,8 @@ const DataService = (() => {
     isIntraday,
     minBacktestBars,
     clearCache,
-    fileInterval
+    fileInterval,
+    findCandleIndex,
+    candleEpoch
   };
 })();

@@ -14,6 +14,7 @@ const state = {
   meta: null,
   range: { from: "", to: "" },
   backtestStart: null,
+  suppressAutoBacktest: false,
   loading: false
 };
 
@@ -162,13 +163,17 @@ function renderSeries() {
   }
 
   applyChartType();
-  priceChart.timeScale().fitContent();
-  volumeChart.timeScale().fitContent();
+  if (state.backtestStart != null) {
+    scrollChartToTime(state.backtestStart);
+  } else {
+    priceChart.timeScale().fitContent();
+    volumeChart.timeScale().fitContent();
+  }
   updateQuoteUI();
   drawSpark();
   renderWatchlist();
   renderScreener();
-  if (window.StrategyTester) StrategyTester.update();
+  if (window.StrategyTester && !state.suppressAutoBacktest) StrategyTester.update();
 }
 
 async function loadMarketData() {
@@ -366,22 +371,71 @@ function updateRangeInputs() {
 }
 
 function setBacktestRange(from, to, startTime = null) {
+  state.suppressAutoBacktest = true;
   state.range = { from, to };
   state.backtestStart = startTime;
   document.getElementById("rangeFrom").value = from;
   document.getElementById("rangeTo").value = to;
   updateBacktestStartLabel();
   applyFilteredCandles();
+  state.suppressAutoBacktest = false;
 }
 
 function scrollChartToTime(time) {
   if (!priceChart || !state.candles.length) return;
-  const idx = state.candles.findIndex((c) => String(c.time) === String(time));
-  const anchor = idx >= 0 ? idx : 0;
-  const span = Math.min(120, state.candles.length - anchor);
-  const range = { from: Math.max(0, anchor - 2), to: Math.min(state.candles.length, anchor + span) };
+  const anchor = DataService.findCandleIndex(state.candles, time);
+  const span = Math.min(160, state.candles.length - anchor);
+  const range = {
+    from: Math.max(0, anchor - 3),
+    to: Math.min(state.candles.length - 1, anchor + Math.max(span, 40))
+  };
   priceChart.timeScale().setVisibleLogicalRange(range);
   volumeChart.timeScale().setVisibleLogicalRange(range);
+}
+
+function resolveBacktestStartIndex(random = false) {
+  const raw = state.rawCandles;
+  const minBars = minBacktestBars();
+  if (raw.length < minBars + 5) return -1;
+
+  const maxStart = raw.length - minBars - 1;
+  if (random) return Math.floor(Math.random() * (maxStart + 1));
+
+  const fromInput = document.getElementById("rangeFrom")?.value;
+  if (fromInput) {
+    const idx = DataService.findCandleIndex(raw, fromInput);
+    return Math.min(idx, maxStart);
+  }
+
+  // Default: jump ~40% back in full history so we simulate from the past forward
+  return Math.min(Math.floor(raw.length * 0.4), maxStart);
+}
+
+function prepareHistoricalBacktest({ random = false } = {}) {
+  if (!state.rawCandles.length) {
+    setStatus("Load chart data first.", true);
+    return null;
+  }
+
+  const startIdx = resolveBacktestStartIndex(random);
+  if (startIdx < 0) {
+    setStatus("Not enough history to backtest.", true);
+    return null;
+  }
+
+  const startCandle = state.rawCandles[startIdx];
+  const endCandle = state.rawCandles.at(-1);
+  const from = candleToDateValue(startCandle.time);
+  const to = candleToDateValue(endCandle.time);
+
+  setBacktestRange(from, to, startCandle.time);
+
+  if (state.candles.length < minBacktestBars()) {
+    setStatus("Backtest window too small — try a wider timeframe or daily bars.", true);
+    return null;
+  }
+
+  return startCandle;
 }
 
 function flashButton(btn) {
@@ -396,58 +450,47 @@ function flashButton(btn) {
   }, 250);
 }
 
-function executeBacktest(triggerBtn = null) {
-  if (!state.candles.length) {
+function executeBacktest(triggerBtn = null, { random = false, keepRange = false } = {}) {
+  if (!state.rawCandles.length) {
     setStatus("No chart data loaded yet.", true);
     return false;
   }
-  const minBars = minBacktestBars();
-  if (state.candles.length < minBars) {
-    setStatus(`Need at least ${minBars} bars in range. Widen the date range or use Random start.`, true);
-    return false;
-  }
-
-  showStrategyTester();
 
   if (!window.StrategyTester?.run) {
     setStatus("Strategy tester is still loading — try again in a moment.", true);
     return false;
   }
 
-  const ok = StrategyTester.run();
+  let startCandle = null;
+  if (keepRange && state.candles.length >= minBacktestBars()) {
+    startCandle = state.candles[0];
+    state.backtestStart = startCandle.time;
+    updateBacktestStartLabel();
+    scrollChartToTime(startCandle.time);
+  } else {
+    startCandle = prepareHistoricalBacktest({ random });
+    if (!startCandle) return false;
+  }
+
+  showStrategyTester();
+  StrategyTester.selectTab("overview");
+
+  const ok = StrategyTester.run({ force: true });
   if (ok) {
     flashButton(triggerBtn || document.getElementById("runBacktest") || document.getElementById("headerRunBacktest"));
-    setStatus(`Backtest complete · ${state.candles.length} bars · ${state.active.symbol}`);
+    const startLabel = formatCandleLabel(startCandle.time);
+    const endLabel = formatCandleLabel(state.candles.at(-1).time);
+    setStatus(
+      `Backtest from ${startLabel} → ${endLabel} · ${state.candles.length} bars · ${state.active.symbol}`
+    );
+  } else {
+    setStatus("Backtest ran but produced no results — try a different strategy or range.", true);
   }
   return ok;
 }
 
 function randomBacktestStart(triggerBtn = null) {
-  if (!state.rawCandles.length) {
-    setStatus("Load data first before picking a random start.", true);
-    return;
-  }
-  const minBars = minBacktestBars();
-  if (state.rawCandles.length < minBars + 10) {
-    setStatus("Not enough history for a random backtest window.", true);
-    return;
-  }
-
-  const maxStart = state.rawCandles.length - minBars - 1;
-  const startIdx = Math.floor(Math.random() * (maxStart + 1));
-  const startCandle = state.rawCandles[startIdx];
-  const from = candleToDateValue(startCandle.time);
-  const to = candleToDateValue(state.rawCandles.at(-1).time);
-
-  setBacktestRange(from, to, startCandle.time);
-  scrollChartToTime(state.candles[0]?.time ?? startCandle.time);
-
-  const ok = executeBacktest(triggerBtn);
-  if (ok) {
-    setStatus(
-      `Random start ${formatCandleLabel(startCandle.time)} → ${formatCandleLabel(state.candles.at(-1).time)} · ${state.candles.length} bars`
-    );
-  }
+  executeBacktest(triggerBtn, { random: true });
 }
 
 function bindEvents() {
@@ -524,16 +567,20 @@ function bindEvents() {
   });
 
   document.getElementById("applyRange").addEventListener("click", () => {
-    setBacktestRange(
-      document.getElementById("rangeFrom").value,
-      document.getElementById("rangeTo").value,
-      null
-    );
+    const from = document.getElementById("rangeFrom").value;
+    const to = document.getElementById("rangeTo").value;
+    const startIdx = from ? DataService.findCandleIndex(state.rawCandles, from) : 0;
+    const startTime = state.rawCandles[startIdx]?.time ?? null;
+    setBacktestRange(from, to, startTime);
+    executeBacktest(document.getElementById("applyRange"), { keepRange: true });
   });
 
   document.getElementById("resetRange").addEventListener("click", () => {
+    state.backtestStart = null;
     const range = DataService.defaultRange(state.rawCandles, state.interval);
     setBacktestRange(range.from, range.to, null);
+    updateBacktestStartLabel();
+    safeSetMarkers([]);
   });
 
   document.getElementById("refreshData").addEventListener("click", async () => {
@@ -628,6 +675,7 @@ async function bootstrap() {
           getCandles: () => state.candles,
           getSymbol: () => state.active?.symbol || "",
           getBacktestStart: () => state.backtestStart,
+          getMinBars: minBacktestBars,
           setMarkers: safeSetMarkers,
           formatMoney: money
         });
