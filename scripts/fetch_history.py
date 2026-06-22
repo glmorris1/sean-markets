@@ -13,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "history"
 MANIFEST_PATH = ROOT / "data" / "manifest.json"
+CALENDAR_PATH = ROOT / "data" / "ff_calendar.json"
+CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
 SYMBOLS_PATH = ROOT / "data" / "symbols.json"
 
@@ -80,10 +82,27 @@ def format_volume(value: int) -> str:
     return str(value)
 
 
+def fetch_calendar() -> list:
+    request = urllib.request.Request(CALENDAR_URL, headers={"User-Agent": USER_AGENT})
+    context = ssl.create_default_context()
+    with urllib.request.urlopen(request, context=context, timeout=30) as response:
+        payload = json.load(response)
+    if not isinstance(payload, list):
+        raise ValueError("Forex Factory calendar payload was not a list")
+    return payload
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     fetched_at = datetime.now(timezone.utc).isoformat()
     manifest = {"fetchedAt": fetched_at, "source": "Yahoo Finance", "symbols": []}
+
+    try:
+        calendar = fetch_calendar()
+        CALENDAR_PATH.write_text(json.dumps(calendar, indent=2), encoding="utf-8")
+        print(f"Wrote {CALENDAR_PATH.name} ({len(calendar)} events)")
+    except Exception as error:
+        print(f"Skipped Forex Factory calendar ({error})")
 
     for entry in load_symbols():
         daily_key = f"{entry['symbol']}_1d"
@@ -129,6 +148,8 @@ def main() -> None:
                 "exchange": entry["exchange"],
                 "yahoo": entry["yahoo"],
                 "assetClass": entry.get("assetClass", "stock"),
+                "newsCurrencies": entry.get("newsCurrencies", ["USD"]),
+                "newsKeywords": entry.get("newsKeywords", []),
                 "price": last["close"],
                 "change": round(change, 2),
                 "volume": format_volume(last["volume"]),

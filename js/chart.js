@@ -181,6 +181,7 @@ function updateQuoteUI() {
   document.getElementById("volVal").textContent = DataService.formatVolume(latest.volume);
   document.getElementById("limitPrice").value = latest.close.toFixed(2);
   document.title = `Sean Chart — ${state.active.symbol}`;
+  window.ForexFactory?.updateForSymbol?.(state.active.symbol, state.active);
 }
 
 function syncWatchlistQuote(symbol, latest) {
@@ -473,6 +474,7 @@ function bindEvents() {
     }
     if (target.id === "refreshData") {
       DataService.clearCache();
+      window.ForexFactory?.clearCache?.();
       state.range = { from: "", to: "" };
       loadMarketData();
       return;

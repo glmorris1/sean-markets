@@ -12,6 +12,7 @@
     <script src="js/yahoo-client.js" defer></script>
     <script src="js/yahoo-chart.js" defer></script>
     <script src="js/data-service.js" defer></script>
+    <script src="js/forex-factory.js" defer></script>
     <script src="js/strategy-engine.js" defer></script>
     <script src="js/strategy-tester.js" defer></script>
     <script src="js/chart.js" defer></script>
@@ -238,8 +239,10 @@
           </form>
           <section class="news-feed">
             <h3>Market pulse</h3>
-            <article><time>14:08</time><p>Large-cap tech holds gains as volume builds into the close.</p></article>
-            <article><time>13:41</time><p>Semiconductor breadth improves after a mixed morning.</p></article>
+            <p class="news-source" id="newsFeedLabel">Forex Factory calendar</p>
+            <div id="newsFeed">
+              <p class="news-empty">Loading economic events…</p>
+            </div>
           </section>
         </aside>
       </div>
