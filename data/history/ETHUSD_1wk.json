@@ -4,7 +4,7 @@
   "exchange": "CRYPTO",
   "interval": "1wk",
   "source": "Yahoo Finance",
-  "fetchedAt": "2026-06-22T01:57:20.687402+00:00",
+  "fetchedAt": "2026-06-22T02:31:37.873941+00:00",
   "candles": [
     {
       "time": "2017-11-06",
@@ -3611,8 +3611,8 @@
       "open": 1704.9043,
       "high": 1750.199,
       "low": 1704.9043,
-      "close": 1742.26,
-      "volume": 9381814272
+      "close": 1739.0,
+      "volume": 9504930816
     }
   ]
 }

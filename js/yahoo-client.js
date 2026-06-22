@@ -1,15 +1,11 @@
 const YahooClient = (() => {
-  const SYMBOL_MAP = {
-    BTCUSD: "BTC-USD",
-    ETHUSD: "ETH-USD"
-  };
-
   const PROXY = "https://api.allorigins.win/raw?url=";
 
   const INTRADAY = new Set(["1m", "2m", "5m", "15m", "30m", "1h", "60m", "90m"]);
 
   function yahooSymbol(symbol) {
-    return SYMBOL_MAP[symbol] || symbol;
+    if (window.DataService?.yahooTicker) return DataService.yahooTicker(symbol);
+    return symbol;
   }
 
   function resolveConfig(uiInterval) {

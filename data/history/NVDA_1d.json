@@ -4,7 +4,7 @@
   "exchange": "NASDAQ",
   "interval": "1d",
   "source": "Yahoo Finance",
-  "fetchedAt": "2026-06-22T01:57:20.687402+00:00",
+  "fetchedAt": "2026-06-22T02:31:37.873941+00:00",
   "candles": [
     {
       "time": "2021-06-21",

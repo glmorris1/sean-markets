@@ -6,7 +6,8 @@ const IDEAS = [
   { symbol: "NVDA", title: "Semiconductor pullback into demand zone", bias: "Long", author: "TechTrends" },
   { symbol: "TSLA", title: "Cup-and-handle measured move to $765", bias: "Long", author: "MomentumLab" },
   { symbol: "SPY", title: "Index breadth improving into month-end", bias: "Long", author: "MacroView" },
-  { symbol: "ETHUSD", title: "ETH losing momentum at resistance cluster", bias: "Short", author: "ChainSignals" }
+  { symbol: "ETHUSD", title: "ETH losing momentum at resistance cluster", bias: "Short", author: "ChainSignals" },
+  { symbol: "ES", title: "E-mini S&P holding above overnight VWAP", bias: "Long", author: "FuturesDesk" }
 ];
 
 function money(value) {
@@ -154,7 +155,7 @@ function setupSearch() {
 
   const renderResults = (query = "") => {
     const hits = MARKETS.filter((m) =>
-      `${m.symbol} ${m.name}`.toLowerCase().includes(query.toLowerCase())
+      `${m.symbol} ${m.name} ${m.yahoo || ""} ${m.assetClass || ""}`.toLowerCase().includes(query.toLowerCase())
     );
     results.innerHTML = hits.map((m) => `
       <a class="search-hit" href="chart.html?symbol=${m.symbol}">

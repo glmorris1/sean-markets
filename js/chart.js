@@ -22,12 +22,17 @@ const state = {
 let chartReady = false;
 let loadToken = 0;
 
-function money(value) {
+function money(value, symbol = state.active?.symbol) {
   const num = Number(value);
   if (!Number.isFinite(num)) return "—";
-  const fixed = num.toFixed(2);
+  const decimals = 2;
+  const fixed = num.toFixed(decimals);
   const [whole, fraction] = fixed.split(".");
   return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${fraction}`;
+}
+
+function findMarket(query) {
+  return DataService.resolveSymbol?.(query) || MARKETS.find((m) => m.symbol.toLowerCase() === String(query).toLowerCase()) || null;
 }
 
 function movingAverage(values, period) {
@@ -203,17 +208,30 @@ function renderScreener() {
   `;
 }
 
-function renderWatchlist(filter = "") {
-  const list = document.getElementById("watchlist");
-  const visible = MARKETS.filter((m) =>
-    `${m.symbol} ${m.name}`.toLowerCase().includes(filter.toLowerCase())
-  );
-  list.innerHTML = visible.map((m) => `
+function watchlistRow(m) {
+  return `
     <button class="watch-row ${state.active?.symbol === m.symbol ? "active" : ""}" type="button" data-symbol="${m.symbol}">
       <span><strong>${m.symbol}</strong><span>${m.name}</span></span>
-      <span><strong>${money(m.price)}</strong><span class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</span></span>
-    </button>
-  `).join("");
+      <span><strong>${money(m.price, m.symbol)}</strong><span class="${m.change >= 0 ? "positive" : "negative"}">${m.change >= 0 ? "+" : ""}${m.change.toFixed(2)}%</span></span>
+    </button>`;
+}
+
+function renderWatchlist(filter = "") {
+  const list = document.getElementById("watchlist");
+  const needle = filter.toLowerCase();
+  const visible = MARKETS.filter((m) => `${m.symbol} ${m.name}`.toLowerCase().includes(needle));
+  const futures = visible.filter((m) => m.assetClass === "futures");
+  const other = visible.filter((m) => m.assetClass !== "futures");
+  const sections = [];
+
+  if (other.length) {
+    sections.push(`<div class="watch-section-label">Markets</div>${other.map(watchlistRow).join("")}`);
+  }
+  if (futures.length) {
+    sections.push(`<div class="watch-section-label">Futures</div>${futures.map(watchlistRow).join("")}`);
+  }
+
+  list.innerHTML = sections.join("") || `<p class="watch-empty">No symbols match "${filter}"</p>`;
 }
 
 function drawSpark() {
@@ -538,9 +556,10 @@ function bindEvents() {
   });
 
   document.getElementById("symbolSearch")?.addEventListener("change", (e) => {
-    const hit = MARKETS.find((m) => m.symbol.toLowerCase() === e.target.value.toLowerCase());
+    const hit = findMarket(e.target.value);
     if (hit) {
       state.active = hit;
+      e.target.value = hit.symbol;
       state.range = { from: "", to: "" };
       loadMarketData();
     }
@@ -567,7 +586,7 @@ function readSymbolFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const symbol = params.get("symbol");
   if (!symbol) return;
-  const hit = MARKETS.find((m) => m.symbol.toUpperCase() === symbol.toUpperCase());
+  const hit = findMarket(symbol);
   if (hit) {
     state.active = hit;
     document.getElementById("symbolSearch").value = hit.symbol;

@@ -10,6 +10,33 @@ const DataService = (() => {
 
   const cache = new Map();
   let manifestPromise = null;
+  let manifestCache = null;
+  const symbolIndex = new Map();
+
+  const SYMBOL_FALLBACK = {
+    BTCUSD: "BTC-USD",
+    ETHUSD: "ETH-USD",
+    ES: "ES=F",
+    NQ: "NQ=F",
+    YM: "YM=F",
+    RTY: "RTY=F",
+    CL: "CL=F",
+    GC: "GC=F",
+    SI: "SI=F",
+    NG: "NG=F"
+  };
+
+  function buildSymbolIndex(manifest) {
+    manifestCache = manifest;
+    symbolIndex.clear();
+    for (const entry of manifest.symbols || []) {
+      symbolIndex.set(entry.symbol.toUpperCase(), entry);
+      if (entry.yahoo) symbolIndex.set(String(entry.yahoo).toUpperCase(), entry);
+      if (entry.assetClass === "futures") {
+        symbolIndex.set(`${entry.symbol}=F`.toUpperCase(), entry);
+      }
+    }
+  }
 
   function getConfig(uiInterval) {
     return INTERVALS[uiInterval] || INTERVALS.D;
@@ -37,9 +64,38 @@ const DataService = (() => {
         .then((res) => {
           if (!res.ok) throw new Error("Manifest unavailable");
           return res.json();
+        })
+        .then((manifest) => {
+          buildSymbolIndex(manifest);
+          return manifest;
         });
     }
     return manifestPromise;
+  }
+
+  function yahooTicker(symbol) {
+    const key = String(symbol || "").toUpperCase();
+    const entry = symbolIndex.get(key);
+    if (entry?.yahoo) return entry.yahoo;
+    return SYMBOL_FALLBACK[key] || symbol;
+  }
+
+  function resolveSymbol(query) {
+    const q = String(query || "").trim().toUpperCase();
+    if (!q) return null;
+    const indexed = symbolIndex.get(q);
+    if (indexed) return indexed;
+    const markets = manifestCache?.symbols || [];
+    return (
+      markets.find((m) => m.assetClass === "futures" && (q === `${m.symbol}=F` || q.startsWith(m.symbol))) ||
+      markets.find((m) => m.symbol.toUpperCase() === q) ||
+      null
+    );
+  }
+
+  function isFutures(symbol) {
+    const entry = symbolIndex.get(String(symbol || "").toUpperCase());
+    return entry?.assetClass === "futures";
   }
 
   async function loadBundledHistory(symbol, uiInterval) {
@@ -214,6 +270,9 @@ const DataService = (() => {
     INTERVALS,
     getConfig,
     loadManifest,
+    yahooTicker,
+    resolveSymbol,
+    isFutures,
     loadHistory,
     filterByDateRange,
     defaultRange,

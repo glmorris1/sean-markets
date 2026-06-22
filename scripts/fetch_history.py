@@ -14,16 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "history"
 MANIFEST_PATH = ROOT / "data" / "manifest.json"
 
-SYMBOLS = [
-    {"symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "yahoo": "AAPL"},
-    {"symbol": "MSFT", "name": "Microsoft Corp.", "exchange": "NASDAQ", "yahoo": "MSFT"},
-    {"symbol": "TSLA", "name": "Tesla Inc.", "exchange": "NASDAQ", "yahoo": "TSLA"},
-    {"symbol": "NVDA", "name": "NVIDIA Corp.", "exchange": "NASDAQ", "yahoo": "NVDA"},
-    {"symbol": "META", "name": "Meta Platforms", "exchange": "NASDAQ", "yahoo": "META"},
-    {"symbol": "SPY", "name": "S&P 500 ETF", "exchange": "NYSE Arca", "yahoo": "SPY"},
-    {"symbol": "BTCUSD", "name": "Bitcoin", "exchange": "CRYPTO", "yahoo": "BTC-USD"},
-    {"symbol": "ETHUSD", "name": "Ethereum", "exchange": "CRYPTO", "yahoo": "ETH-USD"},
-]
+SYMBOLS_PATH = ROOT / "data" / "symbols.json"
+
+
+def load_symbols() -> list[dict]:
+    return json.loads(SYMBOLS_PATH.read_text(encoding="utf-8"))
 
 INTERVALS = {
     "2m": {"interval": "2m", "range": "5d"},
@@ -90,7 +85,7 @@ def main() -> None:
     fetched_at = datetime.now(timezone.utc).isoformat()
     manifest = {"fetchedAt": fetched_at, "source": "Yahoo Finance", "symbols": []}
 
-    for entry in SYMBOLS:
+    for entry in load_symbols():
         daily_key = f"{entry['symbol']}_1d"
         daily_path = OUT_DIR / f"{daily_key}.json"
         daily = fetch_chart(entry["yahoo"], INTERVALS["1d"]["interval"], INTERVALS["1d"]["range"])
@@ -132,6 +127,8 @@ def main() -> None:
                 "symbol": entry["symbol"],
                 "name": entry["name"],
                 "exchange": entry["exchange"],
+                "yahoo": entry["yahoo"],
+                "assetClass": entry.get("assetClass", "stock"),
                 "price": last["close"],
                 "change": round(change, 2),
                 "volume": format_volume(last["volume"]),

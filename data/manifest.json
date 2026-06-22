@@ -1,11 +1,13 @@
 {
-  "fetchedAt": "2026-06-22T01:57:20.687402+00:00",
+  "fetchedAt": "2026-06-22T02:31:37.873941+00:00",
   "source": "Yahoo Finance",
   "symbols": [
     {
       "symbol": "AAPL",
       "name": "Apple Inc.",
       "exchange": "NASDAQ",
+      "yahoo": "AAPL",
+      "assetClass": "stock",
       "price": 298.01,
       "change": 0.7,
       "volume": "86.0M"
@@ -14,6 +16,8 @@
       "symbol": "MSFT",
       "name": "Microsoft Corp.",
       "exchange": "NASDAQ",
+      "yahoo": "MSFT",
+      "assetClass": "stock",
       "price": 379.4,
       "change": 0.13,
       "volume": "59.7M"
@@ -22,6 +26,8 @@
       "symbol": "TSLA",
       "name": "Tesla Inc.",
       "exchange": "NASDAQ",
+      "yahoo": "TSLA",
+      "assetClass": "stock",
       "price": 400.49,
       "change": 1.04,
       "volume": "58.4M"
@@ -30,6 +36,8 @@
       "symbol": "NVDA",
       "name": "NVIDIA Corp.",
       "exchange": "NASDAQ",
+      "yahoo": "NVDA",
+      "assetClass": "stock",
       "price": 210.69,
       "change": 2.95,
       "volume": "241.3M"
@@ -38,6 +46,8 @@
       "symbol": "META",
       "name": "Meta Platforms",
       "exchange": "NASDAQ",
+      "yahoo": "META",
+      "assetClass": "stock",
       "price": 577.22,
       "change": 1.7,
       "volume": "28.8M"
@@ -46,6 +56,8 @@
       "symbol": "SPY",
       "name": "S&P 500 ETF",
       "exchange": "NYSE Arca",
+      "yahoo": "SPY",
+      "assetClass": "etf",
       "price": 746.74,
       "change": 0.78,
       "volume": "80.9M"
@@ -54,17 +66,101 @@
       "symbol": "BTCUSD",
       "name": "Bitcoin",
       "exchange": "CRYPTO",
-      "price": 64540.8008,
-      "change": 0.47,
-      "volume": "17.7B"
+      "yahoo": "BTC-USD",
+      "assetClass": "crypto",
+      "price": 64475.8984,
+      "change": 0.37,
+      "volume": "18.2B"
     },
     {
       "symbol": "ETHUSD",
       "name": "Ethereum",
       "exchange": "CRYPTO",
-      "price": 1742.4301,
-      "change": 0.18,
-      "volume": "9.4B"
+      "yahoo": "ETH-USD",
+      "assetClass": "crypto",
+      "price": 1739.0,
+      "change": -0.02,
+      "volume": "9.5B"
+    },
+    {
+      "symbol": "ES",
+      "name": "E-mini S&P 500",
+      "exchange": "CME",
+      "yahoo": "ES=F",
+      "assetClass": "futures",
+      "price": 7544.25,
+      "change": 0.48,
+      "volume": "235.7K"
+    },
+    {
+      "symbol": "NQ",
+      "name": "E-mini Nasdaq 100",
+      "exchange": "CME",
+      "yahoo": "NQ=F",
+      "assetClass": "futures",
+      "price": 30598.25,
+      "change": 1.11,
+      "volume": "154.7K"
+    },
+    {
+      "symbol": "YM",
+      "name": "E-mini Dow",
+      "exchange": "CBOT",
+      "yahoo": "YM=F",
+      "assetClass": "futures",
+      "price": 51895.0,
+      "change": -0.13,
+      "volume": "19.0K"
+    },
+    {
+      "symbol": "RTY",
+      "name": "E-mini Russell 2000",
+      "exchange": "CME",
+      "yahoo": "RTY=F",
+      "assetClass": "futures",
+      "price": 2987.0,
+      "change": 0.89,
+      "volume": "32.5K"
+    },
+    {
+      "symbol": "CL",
+      "name": "WTI Crude Oil",
+      "exchange": "NYMEX",
+      "yahoo": "CL=F",
+      "assetClass": "futures",
+      "price": 75.59,
+      "change": -1.32,
+      "volume": "111.4K"
+    },
+    {
+      "symbol": "GC",
+      "name": "Gold",
+      "exchange": "COMEX",
+      "yahoo": "GC=F",
+      "assetClass": "futures",
+      "price": 4201.6001,
+      "change": -0.53,
+      "volume": "95.4K"
+    },
+    {
+      "symbol": "SI",
+      "name": "Silver",
+      "exchange": "COMEX",
+      "yahoo": "SI=F",
+      "assetClass": "futures",
+      "price": 65.92,
+      "change": -0.51,
+      "volume": "26.1K"
+    },
+    {
+      "symbol": "NG",
+      "name": "Natural Gas",
+      "exchange": "NYMEX",
+      "yahoo": "NG=F",
+      "assetClass": "futures",
+      "price": 3.295,
+      "change": 1.92,
+      "volume": "25.4K"
     }
   ]
 }
