@@ -104,7 +104,12 @@ const DataService = (() => {
     return response.json();
   }
 
-  async function loadHistory(symbol, uiInterval, { preferLive = true, bypassCache = false } = {}) {
+  function hasBundledData(symbol) {
+    const entry = symbolIndex.get(String(symbol || "").toUpperCase());
+    return !!entry && !entry.custom;
+  }
+
+  async function loadHistory(symbol, uiInterval, { preferLive = true, bypassCache = false, timeoutMs = 8000 } = {}) {
     const key = `${symbol}_${uiInterval}`;
     if (!bypassCache && cache.has(key)) return cache.get(key);
 
@@ -115,10 +120,17 @@ const DataService = (() => {
       bundled = null;
     }
 
-    if (preferLive && window.YahooClient) {
+    const shouldFetchLive = window.YahooClient && (preferLive || !bundled);
+
+    if (shouldFetchLive) {
       try {
-        const live = await YahooClient.fetchChart(symbol, uiInterval, { timeoutMs: 8000 });
-        const payload = live.candles.length >= (bundled?.candles?.length || 0) * 0.9 ? live : mergePayload(live, bundled);
+        const live = await YahooClient.fetchChart(symbol, uiInterval, { timeoutMs });
+        const payload = bundled?.candles?.length && live.candles.length >= bundled.candles.length * 0.9
+          ? live
+          : bundled?.candles?.length
+            ? mergePayload(live, bundled)
+            : live;
+        if (!bundled) payload.sourceNote = "Live Yahoo data";
         cache.set(key, payload);
         return payload;
       } catch (error) {
@@ -317,9 +329,11 @@ const DataService = (() => {
       throw new Error("Yahoo client unavailable.");
     }
 
-    const payload = await YahooClient.fetchChart(raw, "D", { timeoutMs: 10000 });
+    const payload = await YahooClient.fetchChart(raw, "D", { timeoutMs: 12000 });
     if (!payload.candles?.length) throw new Error(`No Yahoo data for ${raw.toUpperCase()}`);
-    return registerMarket(marketFromPayload(raw, payload));
+    const market = registerMarket(marketFromPayload(raw, payload));
+    cache.set(`${market.symbol}_D`, { ...payload, sourceNote: "Live Yahoo data" });
+    return market;
   }
 
   return {
@@ -329,6 +343,7 @@ const DataService = (() => {
     yahooTicker,
     resolveSymbol,
     isFutures,
+    hasBundledData,
     loadHistory,
     filterByDateRange,
     defaultRange,

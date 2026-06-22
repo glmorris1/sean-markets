@@ -101,6 +101,7 @@ async function addSymbolToWatchlist(symbol) {
   setStatus(`Looking up ${raw.toUpperCase()} on Yahoo Finance…`);
   const entry = await DataService.lookupSymbol(raw);
   const market = { ...entry, custom: true };
+  DataService.registerMarket?.(market);
   const custom = loadCustomMarkets();
   if (!custom.some((m) => m.symbol === market.symbol)) {
     custom.push(market);
@@ -263,19 +264,35 @@ function applyHistoryPayload(payload) {
   syncWatchlistQuote(state.active.symbol, latest);
 }
 
+function needsLiveData(symbol) {
+  return state.active?.custom || !BASE_SYMBOLS.has(symbol) || !DataService.hasBundledData?.(symbol);
+}
+
 async function loadMarketData() {
   if (!state.active) return;
   const token = ++loadToken;
   state.loading = true;
-  setStatus("Loading historical data…");
+  const symbol = state.active.symbol;
+  const liveOnly = needsLiveData(symbol);
+  setStatus(liveOnly ? `Loading live Yahoo data for ${symbol}…` : "Loading historical data…");
 
   try {
-    const bundled = await DataService.loadHistory(state.active.symbol, state.interval, { preferLive: false });
+    if (liveOnly) {
+      const payload = await DataService.loadHistory(symbol, state.interval, {
+        preferLive: true,
+        timeoutMs: 12000
+      });
+      if (token !== loadToken) return;
+      applyHistoryPayload(payload);
+      return;
+    }
+
+    const bundled = await DataService.loadHistory(symbol, state.interval, { preferLive: false });
     if (token !== loadToken) return;
     applyHistoryPayload(bundled);
 
     try {
-      const live = await DataService.loadHistory(state.active.symbol, state.interval, {
+      const live = await DataService.loadHistory(symbol, state.interval, {
         preferLive: true,
         bypassCache: true
       });
